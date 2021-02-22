@@ -147,9 +147,9 @@ FLAGS:
 
 ARGS:
     input : String    Declares a positional argument <input> that takes an
-                    argument of type `String`.
+                      argument of type `String`.
     outputs : String  Declares a variable argument <output>... that takes an
-                    arbitrary amount of arguments of type `String`.
+                      arbitrary amount of arguments of type `String`.
 
 SUBCOMMANDS:
     installCmd  installCmd provides an example for a subcommand without flags or
