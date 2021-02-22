@@ -407,7 +407,7 @@ section Configuration
         ParseableType.parse? a.value
       /--
       Converts `a.value` to `τ`, which should be the same type
-      that was designated ub `a.arg.type`.
+      that was designated in `a.arg.type`.
       Panics if the conversion was unsuccessful, which can only
       happen if `τ` is not the same type as the one designated in `a.arg.type`.
       -/
