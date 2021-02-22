@@ -192,7 +192,7 @@ In the case of a processing error, the error is printed and an exit code of `1` 
 Panics if `args` is empty: The list of arguments is always expected to have the application name
 at `args[0]`.
 -/
-def validate! (c : Cmd) (args : List String) : IO UInt32
+def Cmd.validate! (c : Cmd) (args : List String) : IO UInt32
 ```
 ```Lean
 structure Parsed where
