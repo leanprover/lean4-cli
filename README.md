@@ -130,8 +130,8 @@ USAGE:
     exampleCmd [SUBCOMMAND] [FLAGS] <input> <outputs>...
 
 FLAGS:
-    -h, --help                  Prints this message
-    --version                   Prints version
+    -h, --help                  Prints this message.
+    --version                   Prints the version.
     --verbose                   Declares a flag `--verbose`. This is the
                                 description of the flag.
     -i, --invert                Declares a flag `--invert` with an associated
