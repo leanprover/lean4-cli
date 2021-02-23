@@ -52,7 +52,7 @@ section Utils
     contains no line longer than `maxWidth` characters. Retains newlines `\n` in `s`.
     Yields `none` if `maxWidth = 0`.
     -/
-    partial def wrapAt? (s : String) (maxWidth : Nat) : Option String := do
+    def wrapAt? (s : String) (maxWidth : Nat) : Option String := do
       if maxWidth = 0 then
         none
       let lines := s.splitOn "\n" |>.map fun line => do
