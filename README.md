@@ -29,7 +29,7 @@ def exampleCmd : Cmd := `[Cli|
     o, optimize;                "Declares a flag `--optimize` with an associated short alias `-o`."
     p, priority : Nat;          "Declares a flag `--path` with an associated short alias `-p` " ++
                                 "that takes an argument of type `Nat`."
-    "set-paths" : Array String; "Declares a flag `--set-priorities` " ++
+    "set-paths" : Array String; "Declares a flag `--set-paths` " ++
                                 "that takes an argument of type `Array Nat`. " ++
                                 "Quotation marks allow the use of hyphens."
 
@@ -141,7 +141,7 @@ FLAGS:
     -p, --priority : Nat        Declares a flag `--path` with an associated
                                 short alias `-p` that takes an argument of type
                                 `Nat`. [Default: `0`]
-    --set-paths : Array String  Declares a flag `--set-priorities` that takes an
+    --set-paths : Array String  Declares a flag `--set-paths` that takes an
                                 argument of type `Array Nat`. Quotation marks
                                 allow the use of hyphens.
 
