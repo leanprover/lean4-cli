@@ -43,9 +43,9 @@ def exampleCmd : Cmd := `[Cli|
     verbose;                    "Declares a flag `--verbose`. This is the description of the flag."
     i, invert;                  "Declares a flag `--invert` with an associated short alias `-i`."
     o, optimize;                "Declares a flag `--optimize` with an associated short alias `-o`."
-    p, priority : Nat;          "Declares a flag `--path` with an associated short alias `-p` " ++
+    p, priority : Nat;          "Declares a flag `--priority` with an associated short alias `-p` " ++
                                 "that takes an argument of type `Nat`."
-    "set-paths" : Array String; "Declares a flag `--set-priorities` " ++
+    "set-paths" : Array String; "Declares a flag `--set-paths` " ++
                                 "that takes an argument of type `Array Nat`. " ++
                                 "Quotation marks allow the use of hyphens."
 
@@ -120,10 +120,10 @@ Yields:
                                   short alias `-i`.
       -o, --optimize              Declares a flag `--optimize` with an associated
                                   short alias `-o`.
-      -p, --priority : Nat        Declares a flag `--path` with an associated
+      -p, --priority : Nat        Declares a flag `--priority` with an associated
                                   short alias `-p` that takes an argument of type
                                   `Nat`. [Default: `0`]
-      --set-paths : Array String  Declares a flag `--set-priorities` that takes an
+      --set-paths : Array String  Declares a flag `--set-paths` that takes an
                                   argument of type `Array Nat`. Quotation marks
                                   allow the use of hyphens.
 
