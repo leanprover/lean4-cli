@@ -202,7 +202,7 @@ section Utils
   end Array
 
   namespace Option
-    def join (x : Option (Option α)) : Option α := do ←x
+    def join (x : Option (Option α)) : Option α := OptionM.run do ←x
 
     def mapM [Monad m] (f : α → m β) : Option α → m (Option β)
       | none   => return none
@@ -268,7 +268,7 @@ section Configuration
         s!"Array {inst.name}"
     parse?
     | "" => #[]
-    | s  => do (← s.splitOn "," |>.mapM inst.parse?).toArray
+    | s  => OptionM.run do (← s.splitOn "," |>.mapM inst.parse?).toArray
 
   /--
   Represents the type of some flag or argument parameter. Typically coerced from types with
@@ -471,7 +471,7 @@ section Configuration
 
     /-- Finds the flag in `m` with the corresponding `shortName`. -/
     def flagByShortName? (m : Meta) (name : String) : Option Flag :=
-      m.flags.findSome? fun flag => do
+      m.flags.findSome? fun flag => OptionM.run do
         let shortName ← flag.shortName?
         guard <| shortName = name
         return flag
@@ -517,7 +517,7 @@ section Configuration
     happen if `τ` is not the same type as the one designated in the corresponding `Cli.Arg`.
     -/
     def variableArgsAs? (p : Parsed) (τ) [ParseableType τ] : Option (Array τ) :=
-      p.variableArgs.mapM (·.as? τ)
+      OptionM.run <| p.variableArgs.mapM (·.as? τ)
 
     /--
     Converts all `p.variableArgs` values to `τ`, which should be the same type
@@ -859,7 +859,7 @@ section Info
     (content                  : String)
     (emptyContentPlaceholder? : Option String := none)
     : String :=
-    let titleLine? : Option String := do
+    let titleLine? : Option String := OptionM.run do
       if content = "" then
         s!"{title}: {← emptyContentPlaceholder?}"
       else
@@ -891,13 +891,13 @@ section Info
     private def usageInfo (c : Cmd) : String :=
       let subCmdTitle? : Option String := if ¬c.subCmds.isEmpty then "[SUBCOMMAND]" else none
       let posArgNames  : String        := line <| c.positionalArgs.map (s!"<{·.name}>")
-      let varArgName?  : Option String := do s!"<{(← c.variableArg?).name}>..."
+      let varArgName?  : Option String := OptionM.run do s!"<{(← c.variableArg?).name}>..."
       let info := line #[c.fullName, subCmdTitle?.optStr, "[FLAGS]", posArgNames, varArgName?.optStr]
       renderSection "USAGE" info
 
     private def flagInfo (c : Cmd) : String :=
       let columns : Array (String × String) := c.flags.map fun flag =>
-        let shortName?    : Option String := do s!"-{← flag.shortName?}"
+        let shortName?    : Option String := OptionM.run do s!"-{← flag.shortName?}"
         let names         : String        := ", ".optJoin #[shortName?.optStr, s!"--{flag.longName}"]
         let type?         : Option String := if ¬ flag.isParamless then s!": {flag.type.name}" else none
         (line #[names, type?.optStr], flag.description)
@@ -972,7 +972,7 @@ section Parsing
       (flag      : Flag)
       (inputFlag : InputFlag)
       (msg       : String :=
-        let complementaryName? : Option String := do
+        let complementaryName? : Option String := OptionM.run do
           if inputFlag.isShort then
             s!" (`--{flag.longName}`)"
           else
@@ -1263,7 +1263,7 @@ section Parsing
       if args = [] then
         none
       let args := args.tail!.toArray
-      return parse args |>.run' {
+      return some <| parse args |>.run' {
         idx                  := 0
         cmd                  := c
         parsedFlags          := #[]
@@ -1313,7 +1313,7 @@ section Parsing
     Yields `none` if `args` is empty: The list of arguments is always expected to have the application name
     at `args[0]`.
     -/
-    def process? (c : Cmd) (args : List String) : Option (Except (Cmd × String) (Cmd × Parsed)) := do
+    def process? (c : Cmd) (args : List String) : Option (Except (Cmd × String) (Cmd × Parsed)) := OptionM.run <| do
       let result ← c.parse? args
       return do match result with
         | Except.ok (cmd, parsed) =>
@@ -1356,7 +1356,7 @@ section IO
     Yields `none` if `args` is empty: The list of arguments is always expected to have the application name
     at `args[0]`.
     -/
-    def validate? (c : Cmd) (args : List String) : Option (IO UInt32) := do
+    def validate? (c : Cmd) (args : List String) : Option (IO UInt32) := OptionM.run do
       let result ← c.process? args
       return do match result with
         | Except.ok (cmd, parsed) =>

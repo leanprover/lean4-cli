@@ -50,7 +50,7 @@ section Extensions
   /-- Appends a longer description to the end of the help. -/
   def longDescription (description : String) : Extension := {
       extendMeta := fun meta => { meta with furtherInformation? :=
-        return meta.furtherInformation?.optStr ++ lines #[
+        some <| meta.furtherInformation?.optStr ++ lines #[
           meta.furtherInformation?.optStr,
           (if meta.furtherInformation?.isSome then "\n" else "") ++ renderSection "DESCRIPTION" description
         ]
