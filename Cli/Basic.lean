@@ -54,7 +54,7 @@ section Utils
     -/
     def wrapAt? (s : String) (maxWidth : Nat) : Option String := do
       if maxWidth = 0 then
-        none
+        return none
       let lines := s.splitOn "\n" |>.map fun line => do
         let resultLineCount :=
           if line.length % maxWidth = 0 then
@@ -93,7 +93,7 @@ section Utils
     -/
     def wrapWordsAt? (s : String) (maxWidth : Nat) : Option String := do
       if maxWidth = 0 then
-        none
+        return none
       let wordWrappedLines : List String := s.splitOn "\n" |>.map fun s => do
         let words                : Array String := s.splitOn.toArray
         let mut currentLineWidth : Nat          := 0
@@ -168,7 +168,7 @@ section Utils
       let rightColumnWidth := rows.map (·.2.length) |>.getMax? (· < ·) |>.get!
       let minRightColumnWidth := Nat.min rightColumnWidth <| Nat.max ((maxWidth-margin)/2) 1
       if maxWidth - margin - minRightColumnWidth < 1 then
-        none
+        return none
       let rows : Array (List String × String) := rows.map fun (left, right) =>
         (maxWidth - margin - minRightColumnWidth |> left.wrapWordsAt! |>.splitOn "\n", right)
       let leftColumnWidth :=
@@ -1261,7 +1261,7 @@ section Parsing
 
     private def parse? (c : Cmd) (args : List String) : Option (Except ParseError (Cmd × Parsed)) := do
       if args = [] then
-        none
+        return none
       let args := args.tail!.toArray
       return some <| parse args |>.run' {
         idx                  := 0
