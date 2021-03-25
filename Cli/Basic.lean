@@ -175,7 +175,7 @@ section Utils
         rows.flatMap (·.1.map (·.length) |>.toArray)
           |>.getMax? (· < ·)
           |>.get!
-          + margin
+      let leftColumnWidth := leftColumnWidth + margin
       let rows : Array (List String × List String) := rows.map fun (left, right) =>
         (left, maxWidth - leftColumnWidth |> right.wrapWordsAt! |>.splitOn "\n")
       let rows : Array (String × String) := rows.flatMap fun (left, right) =>
