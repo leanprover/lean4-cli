@@ -9,13 +9,12 @@ Then, run `leanpkg build` and add an `import Cli` declaration to the top of your
 
 As of now, if you want to build the binary of your application, you need to link it manually. The following describes how to do so, assuming that your current working directory is the root folder of your Lean 4 project.
 ```
-$ leanpkg build lib
+$ leanpkg build
 $ cd ./build/deps/Cli
 $ leanpkg build lib
 $ cd ../../..
-$ leanpkg build bin LINK_OPTS="./build/deps/Cli/build/lib/libCli.a;./build/lib/lib<NAME_OF_LEAN4_PROJECT>.a"
+$ leanpkg build bin LINK_OPTS="./build/deps/Cli/build/lib/libCli.a"
 ```
-Make sure to replace `<NAME_OF_LEAN4_PROJECT>` in the snippet above with the project name that is designated in your `leanpkg.toml`.
 After executing the above commands, you can find your binary in `./build/bin`.
 
 ### Configuration
