@@ -68,9 +68,9 @@ def exampleCmd : Cmd := `[Cli|
 ]
 
 def main (args : List String) : IO UInt32 :=
-  exampleCmd.validate! args
+  exampleCmd.validate args
 
-#eval main <| "exampleCmd -i -o -p 1 --set-paths=path1,path2,path3 input output1 output2".splitOn " "
+#eval main <| "-i -o -p 1 --set-paths=path1,path2,path3 input output1 output2".splitOn " "
 /-
 Yields:
   Input: input
@@ -84,7 +84,7 @@ Yields:
 -- Short parameterless flags can be grouped,
 -- short flags with parameters do not need to be separated from
 -- the corresponding value.
-#eval main <| "exampleCmd -io -p1 input".splitOn " "
+#eval main <| "-io -p1 input".splitOn " "
 /-
 Yields:
   Input: input
@@ -94,14 +94,14 @@ Yields:
   Flag `--priority` always has at least a default value: 1
 -/
 
-#eval main <| "exampleCmd --version".splitOn " "
+#eval main <| "--version".splitOn " "
 /-
 Yields:
   0.0.1
 -/
 
 
-#eval main <| "exampleCmd -h".splitOn " "
+#eval main <| "-h".splitOn " "
 /-
 Yields:
   exampleCmd [0.0.1]

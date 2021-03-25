@@ -1259,11 +1259,8 @@ section Parsing
         else if ← parseVariableArg then
           loop endOfFlags
 
-    private def parse? (c : Cmd) (args : List String) : Option (Except ParseError (Cmd × Parsed)) := do
-      if args = [] then
-        return none
-      let args := args.tail!.toArray
-      return some <| parse args |>.run' {
+    private def parse (c : Cmd) (args : List String) : Except ParseError (Cmd × Parsed) :=
+      parse' args.toArray |>.run' {
         idx                  := 0
         cmd                  := c
         parsedFlags          := #[]
@@ -1271,7 +1268,7 @@ section Parsing
         parsedVariableArgs   := #[]
       }
     where
-      parse : ParseM (Cmd × Parsed) := do
+      parse' : ParseM (Cmd × Parsed) := do
         parseSubCmds
         parseArgs
         let parsed : Parsed := {
@@ -1291,98 +1288,63 @@ section Parsing
     /--
     Parses `args` according to the specification provided in `c`, returning either a `ParseError` or the
     (sub)command that was called and the parsed content of the input.
-    Yields `none` if `args` is empty: The list of arguments is always expected to have the application name
-    at `args[0]`.
+    Note that `args` designates the list `<foo>` in `somebinary <foo>`.
     -/
-    def parse? (c : Cmd) (args : List String) : Option (Except ParseError (Cmd × Parsed)) :=
-      ParseM.parse? c args
-    /--
-    Parses `args` according to the specification provided in `c`, returning either a `ParseError` or the
-    (sub)command that was called and the parsed content of the input.
-    Yields `none` if `args` is empty: The list of arguments is always expected to have the application name
-    at `args[0]`.
-    -/
-    def parse! (c : Cmd) (args : List String) : Except ParseError (Cmd × Parsed) :=
-      c.parse? args |>.get!
+    def parse (c : Cmd) (args : List String) : Except ParseError (Cmd × Parsed) :=
+      ParseM.parse c args
 
     /--
     Processes `args` by `Cmd.parse?`ing the input according to `c` and then applying the extension of the
     respective (sub)command that was called.
+    Note that `args` designates the list `<foo>` in `somebinary <foo>`.
     Returns either the (sub)command that an error occured in and the corresponding error message or
     the (sub)command that was called and the parsed input after postprocessing.
-    Yields `none` if `args` is empty: The list of arguments is always expected to have the application name
-    at `args[0]`.
     -/
-    def process? (c : Cmd) (args : List String) : Option (Except (Cmd × String) (Cmd × Parsed)) := OptionM.run <| do
-      let result ← c.parse? args
-      return do match result with
-        | Except.ok (cmd, parsed) =>
-          match cmd.extension? with
-          | some ext =>
-            let newMeta := ext.extendMeta cmd.meta
-            let newCmd := cmd.update' (meta := newMeta)
-            match ext.postprocess newMeta parsed with
-            | Except.ok newParsed =>
-              return (newCmd, newParsed)
-            | Except.error msg =>
-              throw (newCmd, msg)
-          | none =>
-            return (cmd, parsed)
-        | Except.error err =>
-          throw (err.cmd, err.kind.msg)
-
-  /--
-  Processes `args` by `Cmd.parse!`ing the input according to `c` and then applying the extension of the
-  respective (sub)command that was called.
-  Returns either the (sub)command that an error occured in and the corresponding error message or
-  the (sub)command that was called and the parsed input after postprocessing.
-  Panics if `args` is empty: The list of arguments is always expected to have the application name
-  at `args[0]`.
-  -/
-  def process! (c : Cmd) (args : List String) : Except (Cmd × String) (Cmd × Parsed) :=
-    c.process? args |>.get!
+    def process (c : Cmd) (args : List String) : Except (Cmd × String) (Cmd × Parsed) := do
+      let result := c.parse args
+      match result with
+      | Except.ok (cmd, parsed) =>
+        match cmd.extension? with
+        | some ext =>
+          let newMeta := ext.extendMeta cmd.meta
+          let newCmd := cmd.update' (meta := newMeta)
+          match ext.postprocess newMeta parsed with
+          | Except.ok newParsed =>
+            return (newCmd, newParsed)
+          | Except.error msg =>
+            throw (newCmd, msg)
+        | none =>
+          return (cmd, parsed)
+      | Except.error err =>
+        throw (err.cmd, err.kind.msg)
   end Cmd
 end Parsing
 
 section IO
   namespace Cmd
-    /--
-    Validates `args` by `Cmd.process?`ing the input according to `c`.
-    Prints the help or the version of the called (sub)command if the respective flag was passed and
-    returns `0` for the exit code.
-    If neither of these flags were passed and processing was successful, the `run` handler of the
-    called command is executed.
-    In the case of a processing error, the error is printed and an exit code of `1` is returned.
-    Yields `none` if `args` is empty: The list of arguments is always expected to have the application name
-    at `args[0]`.
-    -/
-    def validate? (c : Cmd) (args : List String) : Option (IO UInt32) := OptionM.run do
-      let result ← c.process? args
-      return do match result with
-        | Except.ok (cmd, parsed) =>
-          if parsed.hasFlag "help" then
-            cmd.printHelp
-            return 0
-          if parsed.hasFlag "version" then
-            cmd.printVersion
-            return 0
-          cmd.run parsed
-        | Except.error (cmd, err) =>
-          cmd.printError err
-          return 1
-
-    /--
-    Validates `args` by `Cmd.process!`ing the input according to `c`.
-    Prints the help or the version of the called (sub)command if the respective flag was passed and
-    returns `0` for the exit code.
-    If neither of these flags were passed and processing was successful, the `run` handler of the
-    called command is executed.
-    In the case of a processing error, the error is printed and an exit code of `1` is returned.
-    Panics if `args` is empty: The list of arguments is always expected to have the application name
-    at `args[0]`.
-    -/
-    def validate! (c : Cmd) (args : List String) : IO UInt32 :=
-      c.validate? args |>.get!
+/--
+Validates `args` by `Cmd.process?`ing the input according to `c`.
+Note that `args` designates the list `<foo>` in `somebinary <foo>`.
+Prints the help or the version of the called (sub)command if the respective flag was passed and
+returns `0` for the exit code.
+If neither of these flags were passed and processing was successful, the `run` handler of the
+called command is executed.
+In the case of a processing error, the error is printed and an exit code of `1` is returned.
+-/
+def validate (c : Cmd) (args : List String) : IO UInt32 := do
+  let result := c.process args
+  match result with
+  | Except.ok (cmd, parsed) =>
+    if parsed.hasFlag "help" then
+      cmd.printHelp
+      return 0
+    if parsed.hasFlag "version" then
+      cmd.printVersion
+      return 0
+    cmd.run parsed
+  | Except.error (cmd, err) =>
+    cmd.printError err
+    return 1
   end Cmd
 end IO
 

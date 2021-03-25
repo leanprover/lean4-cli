@@ -89,9 +89,9 @@ Below you can find some simple examples of how to pass user input to the Cli lib
 
 ```lean
 def main (args : List String) : IO UInt32 :=
-  exampleCmd.validate! args
+  exampleCmd.validate args
 
-#eval main <| "exampleCmd -i -o -p 1 --set-paths=path1,path2,path3 input output1 output2".splitOn " "
+#eval main <| "-i -o -p 1 --set-paths=path1,path2,path3 input output1 output2".splitOn " "
 /-
 Yields:
   Input: input
@@ -105,7 +105,7 @@ Yields:
 -- Short parameterless flags can be grouped,
 -- short flags with parameters do not need to be separated from
 -- the corresponding value.
-#eval main <| "exampleCmd -io -p1 input".splitOn " "
+#eval main <| "-io -p1 input".splitOn " "
 /-
 Yields:
   Input: input
@@ -115,7 +115,7 @@ Yields:
   Flag `--priority` always has at least a default value: 1
 -/
 
-#eval main <| "exampleCmd --version".splitOn " "
+#eval main <| "--version".splitOn " "
 /-
 Yields:
   0.0.1
@@ -124,7 +124,7 @@ Yields:
 
 
 ### Help
-Upon calling `exampleCmd -h`, the above configuration produces the following help.
+Upon calling `-h`, the above configuration produces the following help.
 ```
 exampleCmd [0.0.1]
 mhuisi
@@ -187,16 +187,28 @@ syntax "`[Cli|\n"
 
 ```Lean
 /--
-Validates `args` by `Cmd.process!`ing the input according to `c`.
+Validates `args` by `Cmd.process?`ing the input according to `c`.
+Note that `args` designates the list `<foo>` in `somebinary <foo>`.
 Prints the help or the version of the called (sub)command if the respective flag was passed and
 returns `0` for the exit code.
 If neither of these flags were passed and processing was successful, the `run` handler of the
 called command is executed.
 In the case of a processing error, the error is printed and an exit code of `1` is returned.
-Panics if `args` is empty: The list of arguments is always expected to have the application name
-at `args[0]`.
 -/
-def Cmd.validate! (c : Cmd) (args : List String) : IO UInt32
+def validate (c : Cmd) (args : List String) : IO UInt32 := do
+  let result := c.process args
+  match result with
+  | Except.ok (cmd, parsed) =>
+    if parsed.hasFlag "help" then
+      cmd.printHelp
+      return 0
+    if parsed.hasFlag "version" then
+      cmd.printVersion
+      return 0
+    cmd.run parsed
+  | Except.error (cmd, err) =>
+    cmd.printError err
+    return 1
 ```
 ```Lean
 structure Parsed where

@@ -16,8 +16,11 @@ section Utils
     | Except.ok a,    n => s!"Except.ok ({repr a})"
     | Except.error b, n => s!"Except.error ({repr b})"
 
-  def Cmd.processParsed! (c : Cmd) (args : String) : String := do
-    match c.process! args.splitOn with
+  def Cmd.processParsed (c : Cmd) (args : String) : String := do
+    let mut args := args.splitOn
+    if args = [""] then
+      args := []
+    match c.process args with
     | Except.ok (cmd, parsed) =>
       return toString parsed
     | Except.error (cmd, error) =>
@@ -85,120 +88,120 @@ def testCmd : Cmd := `[Cli|
 
 section ValidInputs
   #assert
-    (testCmd.processParsed! "testcommand foo 1 -ta")
+    (testCmd.processParsed "foo 1 -ta")
     == "cmd: testcommand; flags: #[--typed1=a, --level-param=0]; positionalArgs: #[<input1=foo>, <input2=1>]; variableArgs: #[]"
 
   #assert
-    (testCmd.processParsed! "testcommand -h")
+    (testCmd.processParsed "-h")
     == "cmd: testcommand; flags: #[--help, --level-param=0]; positionalArgs: #[]; variableArgs: #[]"
 
   #assert
-    (testCmd.processParsed! "testcommand --version")
+    (testCmd.processParsed "--version")
     == "cmd: testcommand; flags: #[--version, --level-param=0]; positionalArgs: #[]; variableArgs: #[]"
 
   #assert
-    (testCmd.processParsed! "testcommand foo --verbose -p-n 2 1,2,3 1 -xnx 2 --typed1=foo 3")
+    (testCmd.processParsed "foo --verbose -p-n 2 1,2,3 1 -xnx 2 --typed1=foo 3")
     == "cmd: testcommand; flags: #[--verbose, --level-param=2, --unknown2, --unknown1, --typed1=foo]; positionalArgs: #[<input1=foo>, <input2=1,2,3>]; variableArgs: #[<outputs=1>, <outputs=2>, <outputs=3>]"
 
   #assert
-    (testCmd.processParsed! "testcommand foo -xny 1 -t 3")
+    (testCmd.processParsed "foo -xny 1 -t 3")
     == "cmd: testcommand; flags: #[--unknown1, --unknown3, --typed1=3, --level-param=0]; positionalArgs: #[<input1=foo>, <input2=1>]; variableArgs: #[]"
 
   #assert
-    (testCmd.processParsed! "testcommand -t 3 -- --input 2")
+    (testCmd.processParsed "-t 3 -- --input 2")
     == "cmd: testcommand; flags: #[--typed1=3, --level-param=0]; positionalArgs: #[<input1=--input>, <input2=2>]; variableArgs: #[]"
 
   #assert
-    (testCmd.processParsed! "testcommand -t1 - 2")
+    (testCmd.processParsed "-t1 - 2")
     == "cmd: testcommand; flags: #[--typed1=1, --level-param=0]; positionalArgs: #[<input1=->, <input2=2>]; variableArgs: #[]"
 
   #assert
-    (testCmd.processParsed! "testcommand -ty -t1 foo 1,2")
+    (testCmd.processParsed "-ty -t1 foo 1,2")
     == "cmd: testcommand; flags: #[--typed2, --typed1=1, --level-param=0]; positionalArgs: #[<input1=foo>, <input2=1,2>]; variableArgs: #[]"
 
   #assert
-    (testCmd.processParsed! "testcommand testsubcommand1 -- testsubsubcommand")
+    (testCmd.processParsed "testsubcommand1 -- testsubsubcommand")
     == "cmd: testcommand testsubcommand1; flags: #[]; positionalArgs: #[<city-location=testsubsubcommand>]; variableArgs: #[]"
 
   #assert
-    (testCmd.processParsed! "testcommand testsubcommand1 --launch-the-nukes x")
+    (testCmd.processParsed "testsubcommand1 --launch-the-nukes x")
     == "cmd: testcommand testsubcommand1; flags: #[--launch-the-nukes]; positionalArgs: #[<city-location=x>]; variableArgs: #[]"
 
   #assert
-    (testCmd.processParsed! "testcommand testsubcommand1 -- --launch-the-nukes")
+    (testCmd.processParsed "testsubcommand1 -- --launch-the-nukes")
     == "cmd: testcommand testsubcommand1; flags: #[]; positionalArgs: #[<city-location=--launch-the-nukes>]; variableArgs: #[]"
 
   #assert
-    (testCmd.processParsed! "testcommand testsubcommand1 testsubsubcommand")
+    (testCmd.processParsed "testsubcommand1 testsubsubcommand")
     == "cmd: testcommand testsubcommand1 testsubsubcommand; flags: #[]; positionalArgs: #[]; variableArgs: #[]"
 
-  #assert (testCmd.processParsed! "testcommand testsubcommand2 --run asdf,geh")
+  #assert (testCmd.processParsed "testsubcommand2 --run asdf,geh")
     == "cmd: testcommand testsubcommand2; flags: #[--run]; positionalArgs: #[<ominous-input=asdf,geh>]; variableArgs: #[]"
 end ValidInputs
 
 section InvalidInputs
   #assert
-    (testCmd.processParsed! "testcommand")
+    (testCmd.processParsed "")
     == "Missing positional argument `<input1>.`"
 
   #assert
-    (testCmd.processParsed! "testcommand foo")
+    (testCmd.processParsed "foo")
     == "Missing positional argument `<input2>.`"
 
   #assert
-    (testCmd.processParsed! "testcommand foo asdf")
+    (testCmd.processParsed "foo asdf")
     == "Invalid type of argument `asdf` for positional argument `<input2 : Array Nat>`."
 
   #assert
-    (testCmd.processParsed! "testcommand foo 1,2,3")
+    (testCmd.processParsed "foo 1,2,3")
     == "Missing required flag `--typed1`."
 
   #assert
-    (testCmd.processParsed! "testcommand foo 1,2,3 -t")
+    (testCmd.processParsed "foo 1,2,3 -t")
     == "Missing argument for flag `-t`."
 
   #assert
-    (testCmd.processParsed! "testcommand foo 1,2,3 -t1 --level-param=")
+    (testCmd.processParsed "foo 1,2,3 -t1 --level-param=")
     == "Invalid type of argument `` for flag `--level-param : Nat`."
 
   #assert
-    (testCmd.processParsed! "testcommand foo 1,2,3 -t1 -p-n=")
+    (testCmd.processParsed "foo 1,2,3 -t1 -p-n=")
     == "Invalid type of argument `` for flag `-p-n : Nat`."
 
   #assert
-    (testCmd.processParsed! "testcommand foo 1,2,3 -t1 --asdf")
+    (testCmd.processParsed "foo 1,2,3 -t1 --asdf")
     == "Unknown flag `--asdf`."
 
   #assert
-    (testCmd.processParsed! "testcommand foo 1,2,3 -t1 -t2")
+    (testCmd.processParsed "foo 1,2,3 -t1 -t2")
     == "Duplicate flag `-t` (`--typed1`)."
 
   #assert
-    (testCmd.processParsed! "testcommand foo 1,2,3 -t1 --typed1=2")
+    (testCmd.processParsed "foo 1,2,3 -t1 --typed1=2")
     == "Duplicate flag `--typed1` (`-t`)."
 
   #assert
-    (testCmd.processParsed! "testcommand foo 1,2,3 --typed12")
+    (testCmd.processParsed "foo 1,2,3 --typed12")
     == "Unknown flag `--typed12`."
 
   #assert
-    (testCmd.processParsed! "testcommand foo 1,2,3 -t1 -x=1")
+    (testCmd.processParsed "foo 1,2,3 -t1 -x=1")
     == "Redundant argument `1` for flag `-x` that takes no arguments."
 
   #assert
-    (testCmd.processParsed! "testcommand foo 1,2,3 -t1 bar")
+    (testCmd.processParsed "foo 1,2,3 -t1 bar")
     == "Invalid type of argument `bar` for variable argument `<outputs : Nat>...`."
 
   #assert
-    (testCmd.processParsed! "testcommand foo 1,2,3 -t1 -xxn=1")
+    (testCmd.processParsed "foo 1,2,3 -t1 -xxn=1")
     == "Unknown flag `-xxn`."
 
   #assert
-    (testCmd.processParsed! "testcommand foo 1,2,3 --t=1")
+    (testCmd.processParsed "foo 1,2,3 --t=1")
     == "Unknown flag `--t`."
 
   #assert
-    (testCmd.processParsed! "testcommand testsubcommand1 asdf geh")
+    (testCmd.processParsed "testsubcommand1 asdf geh")
     == "Redundant positional argument `geh`."
 end InvalidInputs
 
