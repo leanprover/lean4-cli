@@ -1,7 +1,11 @@
 # lean4-cli
 ## Usage
-Add the library to your `leanpkg.toml` and run `leanpkg build`.
-Then, add an `import Cli` declaration to the top of your Lean 4 file.
+Add the library to your `leanpkg.toml` by appending the following to the file with the git revision that you'd like to install:
+```
+[dependencies]
+Cli = {git = "https://github.com/mhuisi/lean4-cli", rev = "<REVISION>"}
+```
+Then, run `leanpkg build` and add an `import Cli` declaration to the top of your Lean 4 file.
 
 ### Configuration
 Commands are configured with a lightweight DSL. The following declarations define a command `exampleCmd` with two subcommands `installCmd` and `testCmd`. `doNothing` and `runExampleCmd` denote the handlers that are called when the command is called and are written out further down below in the **Command Handlers** subsection.
