@@ -18,7 +18,7 @@ section Utils
     Groups elements in `xs` by `key` such that the returned array contains arrays of elements
     from `xs` that are all equal after being mapped with `key`.
     -/
-    def groupBy [Inhabited α] [Inhabited β] [HasLess α] [DecidableRel ((· < ·) : α → α → Prop)]
+    def groupBy [Inhabited α] [Inhabited β] [LT α] [DecidableRel ((· < ·) : α → α → Prop)]
       (key : β → α) (xs : Array β)
       : Array (Array β) := do
       if xs.size = 0 then
@@ -267,7 +267,7 @@ section Configuration
       else
         s!"Array {inst.name}"
     parse?
-    | "" => #[]
+    | "" => some #[]
     | s  => OptionM.run do (← s.splitOn "," |>.mapM inst.parse?).toArray
 
   /--
@@ -1123,7 +1123,7 @@ section Parsing
       skip
       return some <| parsedFlags.map (·.2)
     where
-      loop (flagContent : String) (matched : Std.RBTree String (· < ·))
+      loop (flagContent : String) (matched : Std.RBTree String compare)
         : ParseM (Option (Array (String × Parsed.Flag))) := do
         -- this is not tail recursive, but that's fine: `loop` will only recurse further if the corresponding
         -- flag has not been matched yet, meaning that this can only overflow if the application has an

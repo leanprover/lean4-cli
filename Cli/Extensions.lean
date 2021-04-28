@@ -6,10 +6,9 @@ section Utils
     Appends those elements of `right` to `left` whose `key` is not already
     contained in `left`.
     -/
-    def leftUnionBy [HasLess α] [DecidableRel ((· < ·) : α → α → Prop)]
-      (key : β → α) (left : Array β) (right : Array β)
+    def leftUnionBy [Ord α] (key : β → α) (left : Array β) (right : Array β)
       : Array β := do
-      let leftMap := left.map (fun v => (key v, v)) |>.toList |> Std.RBMap.ofList (lt := (· < ·))
+      let leftMap := left.map (fun v => (key v, v)) |>.toList |> Std.RBMap.ofList (cmp := compare)
       let mut result := left
       for v in right do
         if ¬ leftMap.contains (key v) then
@@ -20,10 +19,9 @@ section Utils
     Prepends those elements of `left` to `right` whose `key` is not already
     contained in `right`.
     -/
-    def rightUnionBy [HasLess α] [DecidableRel ((· < ·) : α → α → Prop)]
-      (key : β → α) (left : Array β) (right : Array β)
+    def rightUnionBy [Ord α] (key : β → α) (left : Array β) (right : Array β)
       : Array β := do
-      let rightMap := right.map (fun v => (key v, v)) |>.toList |> Std.RBMap.ofList (lt := (· < ·))
+      let rightMap := right.map (fun v => (key v, v)) |>.toList |> Std.RBMap.ofList (cmp := compare)
       let mut result := right
       for v in left.reverse do
         if ¬ rightMap.contains (key v) then
@@ -31,10 +29,9 @@ section Utils
       return result
 
     /-- Deletes all elements from `left` whose `key` is in `right`. -/
-    def diffBy [HasLess α] [DecidableRel ((· < ·) : α → α → Prop)]
-      (key : β → α) (left : Array β) (right : Array α)
+    def diffBy [Ord α] (key : β → α) (left : Array β) (right : Array α)
       : Array β :=
-      let rightMap := Std.RBTree.ofList (lt := (· < ·)) right.toList
+      let rightMap := Std.RBTree.ofList (cmp := compare) right.toList
       left.filter fun v => ¬ (rightMap.contains <| key v)
   end Array
 end Utils
