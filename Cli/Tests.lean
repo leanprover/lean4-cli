@@ -16,7 +16,7 @@ section Utils
     | Except.ok a,    n => s!"Except.ok ({repr a})"
     | Except.error b, n => s!"Except.error ({repr b})"
 
-  def Cmd.processParsed (c : Cmd) (args : String) : String := do
+  def Cmd.processParsed (c : Cmd) (args : String) : String := Id.run do
     let mut args := args.splitOn
     if args = [""] then
       args := []

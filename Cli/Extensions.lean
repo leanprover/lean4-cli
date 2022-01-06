@@ -7,7 +7,7 @@ section Utils
     contained in `left`.
     -/
     def leftUnionBy [Ord α] (key : β → α) (left : Array β) (right : Array β)
-      : Array β := do
+      : Array β := Id.run do
       let leftMap := left.map (fun v => (key v, v)) |>.toList |> Std.RBMap.ofList (cmp := compare)
       let mut result := left
       for v in right do
@@ -20,7 +20,7 @@ section Utils
     contained in `right`.
     -/
     def rightUnionBy [Ord α] (key : β → α) (left : Array β) (right : Array β)
-      : Array β := do
+      : Array β := Id.run do
       let rightMap := right.map (fun v => (key v, v)) |>.toList |> Std.RBMap.ofList (cmp := compare)
       let mut result := right
       for v in left.reverse do

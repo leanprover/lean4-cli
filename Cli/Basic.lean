@@ -20,7 +20,7 @@ section Utils
     -/
     def groupBy [Inhabited α] [Inhabited β] [LT α] [DecidableRel ((· < ·) : α → α → Prop)]
       (key : β → α) (xs : Array β)
-      : Array (Array β) := do
+      : Array (Array β) := Id.run do
       if xs.size = 0 then
         return #[]
       let xs := xs.qsort (key · < key ·)
@@ -36,7 +36,7 @@ section Utils
           groups := groups.set! lastIdx <| groups[lastIdx].push x
       return groups
 
-    def join (xss : Array (Array α)) : Array α := do
+    def join (xss : Array (Array α)) : Array α := Id.run do
       let mut r := #[]
       for xs in xss do
         r := r ++ xs
@@ -52,10 +52,10 @@ section Utils
     contains no line longer than `maxWidth` characters. Retains newlines `\n` in `s`.
     Yields `none` if `maxWidth = 0`.
     -/
-    def wrapAt? (s : String) (maxWidth : Nat) : Option String := do
+    def wrapAt? (s : String) (maxWidth : Nat) : Option String := Id.run do
       if maxWidth = 0 then
         return none
-      let lines := s.splitOn "\n" |>.map fun line => do
+      let lines := s.splitOn "\n" |>.map fun line => Id.run do
         let resultLineCount :=
           if line.length % maxWidth = 0 then
             line.length / maxWidth
@@ -91,10 +91,10 @@ section Utils
     Removes trailing whitespace before each inserted newline. Retains newlines `\n` in `s`.
     Returns `none` if `maxWidth = 0`.
     -/
-    def wrapWordsAt? (s : String) (maxWidth : Nat) : Option String := do
+    def wrapWordsAt? (s : String) (maxWidth : Nat) : Option String := Id.run do
       if maxWidth = 0 then
         return none
-      let wordWrappedLines : List String := s.splitOn "\n" |>.map fun s => do
+      let wordWrappedLines : List String := s.splitOn "\n" |>.map fun s => Id.run do
         let words                : Array String := s.splitOn.toArray
         let mut currentLineWidth : Nat          := 0
         let mut result           : Array String := #[]
@@ -118,7 +118,7 @@ section Utils
         return " ".intercalate result.toList
       let trimmed : List String :=
         wordWrappedLines.map trimTrailingSpaces
-        |>.map fun line => do
+        |>.map fun line => Id.run do
           if line = "" then
             return ""
           if line[0] ≠ '\n' then
@@ -141,7 +141,7 @@ section Utils
     Inserts `n` spaces before each line as seperated by `\n` in `s`.
     Does not indent `s = ""`.
     -/
-    def indent (s : String) (n : Nat := 4) : String := do
+    def indent (s : String) (n : Nat := 4) : String := Id.run do
       if s = "" then
         return ""
       return s.splitOn "\n" |>.map ("".pushn ' ' n ++ ·) |> "\n".intercalate
@@ -162,7 +162,7 @@ section Utils
     text in both columns.
     -/
     def renderTable? (rows : Array (String × String)) (maxWidth : Nat) (margin : Nat := 2)
-      : Option String := do
+      : Option String := Id.run do
       if rows.isEmpty then
         return ""
       let rightColumnWidth := rows.map (·.2.length) |>.getMax? (· < ·) |>.get!
@@ -203,10 +203,6 @@ section Utils
 
   namespace Option
     def join (x : Option (Option α)) : Option α := OptionM.run do ←x
-
-    def mapM [Monad m] (f : α → m β) : Option α → m (Option β)
-      | none   => return none
-      | some x => f x
 
     /--
     Returns `""` if the passed `Option` is `none`, otherwise
@@ -683,7 +679,7 @@ section Configuration
       (run        : Parsed → IO UInt32)
       (subCmds    : Array Cmd        := #[])
       (extension? : Option Extension := none)
-      : Cmd := do
+      : Cmd := Id.run do
       let helpFlag := Flag.paramless
         (shortName?  := "h")
         (longName    := "help")
