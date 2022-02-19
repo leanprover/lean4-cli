@@ -264,7 +264,7 @@ section Configuration
         s!"Array {inst.name}"
     parse?
     | "" => some #[]
-    | s  => OptionM.run do (← s.splitOn "," |>.mapM inst.parse?).toArray
+    | s  => OptionM.run do return (← s.splitOn "," |>.mapM inst.parse?).toArray
 
   /--
   Represents the type of some flag or argument parameter. Typically coerced from types with
@@ -857,9 +857,9 @@ section Info
     : String :=
     let titleLine? : Option String := OptionM.run do
       if content = "" then
-        s!"{title}: {← emptyContentPlaceholder?}"
+        return s!"{title}: {← emptyContentPlaceholder?}"
       else
-        s!"{title}:"
+        return s!"{title}:"
     lines #[
       titleLine?.optStr,
       content |>.wrapWordsAt! maxIndentedWidth |>.indent indentation
@@ -887,13 +887,13 @@ section Info
     private def usageInfo (c : Cmd) : String :=
       let subCmdTitle? : Option String := if ¬c.subCmds.isEmpty then "[SUBCOMMAND]" else none
       let posArgNames  : String        := line <| c.positionalArgs.map (s!"<{·.name}>")
-      let varArgName?  : Option String := OptionM.run do s!"<{(← c.variableArg?).name}>..."
+      let varArgName?  : Option String := OptionM.run do return s!"<{(← c.variableArg?).name}>..."
       let info := line #[c.fullName, subCmdTitle?.optStr, "[FLAGS]", posArgNames, varArgName?.optStr]
       renderSection "USAGE" info
 
     private def flagInfo (c : Cmd) : String :=
       let columns : Array (String × String) := c.flags.map fun flag =>
-        let shortName?    : Option String := OptionM.run do s!"-{← flag.shortName?}"
+        let shortName?    : Option String := OptionM.run do return s!"-{← flag.shortName?}"
         let names         : String        := ", ".optJoin #[shortName?.optStr, s!"--{flag.longName}"]
         let type?         : Option String := if ¬ flag.isParamless then s!": {flag.type.name}" else none
         (line #[names, type?.optStr], flag.description)
@@ -971,9 +971,9 @@ section Parsing
       (msg       : String :=
         let complementaryName? : Option String := OptionM.run do
           if inputFlag.isShort then
-            s!" (`--{flag.longName}`)"
+            return s!" (`--{flag.longName}`)"
           else
-            s!" (`-{← flag.shortName?}`)"
+            return s!" (`-{← flag.shortName?}`)"
         s!"Duplicate flag `{inputFlag}`{complementaryName?.optStr}.")
     | redundantFlagArg
       (flag       : Flag)
@@ -1040,11 +1040,11 @@ section Parsing
     open ParseError.Kind
 
     private def args                 : ParseM (Array String)      := read
-    private def idx                  : ParseM Nat                 := do (← get).idx
-    private def cmd                  : ParseM Cmd                 := do (← get).cmd
-    private def parsedFlags          : ParseM (Array Parsed.Flag) := do (← get).parsedFlags
-    private def parsedPositionalArgs : ParseM (Array Parsed.Arg)  := do (← get).parsedPositionalArgs
-    private def parsedVariableArgs   : ParseM (Array Parsed.Arg)  := do (← get).parsedVariableArgs
+    private def idx                  : ParseM Nat                 := do return (← get).idx
+    private def cmd                  : ParseM Cmd                 := do return (← get).cmd
+    private def parsedFlags          : ParseM (Array Parsed.Flag) := do return (← get).parsedFlags
+    private def parsedPositionalArgs : ParseM (Array Parsed.Arg)  := do return (← get).parsedPositionalArgs
+    private def parsedVariableArgs   : ParseM (Array Parsed.Arg)  := do return (← get).parsedVariableArgs
     private def peek?                : ParseM (Option String)     := do return (← args).get? (← idx)
     private def peekNext?            : ParseM (Option String)     := do return (← args).get? <| (← idx) + 1
     private def flag? (inputFlag : InputFlag) : ParseM (Option Flag) := do
@@ -1247,9 +1247,9 @@ section Parsing
       loop false
     where
       loop (endOfFlags : Bool) : ParseM Unit := do
-        if ← !endOfFlags <&&> parseEndOfFlags then
+        if ← (pure !endOfFlags) <&&> parseEndOfFlags then
           loop true
-        else if ← !endOfFlags <&&> parseFlag then
+        else if ← (pure !endOfFlags) <&&> parseFlag then
           loop endOfFlags
         else if ← parsePositionalArg then
           loop endOfFlags
