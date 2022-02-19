@@ -1,8 +1,0 @@
-[package]
-name = "Cli"
-version = "0.1"
-lean_version = "leanprover/lean4:nightly"
-path = "."
-
-[dependencies]
-AssertCmd = {git = "https://github.com/pnwamk/lean4-assert-command", rev = "b5c1ad61979ba13220aafe6e06ca2e7bd2068311"}
