@@ -1,21 +1,6 @@
 # lean4-cli
 ## Usage
-Add the library to your `leanpkg.toml` by appending the following to the file with the git revision that you'd like to install:
-```
-[dependencies]
-Cli = {git = "https://github.com/mhuisi/lean4-cli", rev = "<REVISION>"}
-```
-Then, run `leanpkg build` and add an `import Cli` declaration to the top of your Lean 4 file. See the sections below on how to use the library.
-
-As of now, if you want to build the binary of your application, you need to link it manually. The following describes how to do so, assuming that your current working directory is the root folder of your Lean 4 project.
-```
-$ leanpkg build
-$ cd ./build/deps/Cli
-$ leanpkg build lib
-$ cd ../../..
-$ leanpkg build bin LINK_OPTS="./build/deps/Cli/build/lib/libCli.a"
-```
-After executing the above commands, you can find your binary in `./build/bin`.
+See [the documentation of Lake](https://github.com/leanprover/lake).
 
 ### Configuration
 Commands are configured with a lightweight DSL. The following declarations define a command `exampleCmd` with two subcommands `installCmd` and `testCmd`. `doNothing` and `runExampleCmd` denote the handlers that are called when the command is called and are written out further down below in the **Command Handlers** subsection.
