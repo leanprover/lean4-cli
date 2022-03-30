@@ -953,7 +953,6 @@ section Parsing
       s!"{pre}{f.name}"
 
   namespace ParseError
-    set_option genInjectivity false in
     /-- Kind of error that occured during parsing. -/
     inductive Kind
     | unknownFlag
