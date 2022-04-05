@@ -8,9 +8,9 @@ section Utils
   -/
   def List.matchLength (a : List α) (b : List α) (unit : α) : List α × List α :=
     if a.length < b.length then
-      (a ++ List.replicate (b.length - a.length) unit, b)
+      (a ++ .replicate (b.length - a.length) unit, b)
     else
-      (a, b ++ List.replicate (a.length - b.length) unit)
+      (a, b ++ .replicate (a.length - b.length) unit)
 
   namespace Array
     -- not really used anymore, but still a neat function to have!
@@ -680,15 +680,15 @@ section Configuration
       (subCmds    : Array Cmd        := #[])
       (extension? : Option Extension := none)
       : Cmd := Id.run do
-      let helpFlag := Flag.paramless
+      let helpFlag := .paramless
         (shortName?  := "h")
         (longName    := "help")
         (description := "Prints this message.")
-      let versionFlag := Flag.paramless
+      let versionFlag := .paramless
         (longName    := "version")
         (description := "Prints the version.")
       let meta := { meta with flags := #[helpFlag, versionFlag] ++ meta.flags }
-      let c := Cmd.init meta run subCmds extension?
+      let c := .init meta run subCmds extension?
       updateParentNames c
     where
       updateParentNames (c : Cmd) : Cmd :=
@@ -1007,14 +1007,14 @@ section Parsing
 
     /-- Associated message of the error. -/
     def Kind.msg : Kind → String
-    | unknownFlag              _     msg => msg
-    | missingFlagArg           _ _   msg => msg
-    | duplicateFlag            _ _   msg => msg
-    | redundantFlagArg         _ _ _ msg => msg
-    | invalidFlagType          _ _ _ msg => msg
-    | missingPositionalArg     _     msg => msg
-    | invalidPositionalArgType _ _   msg => msg
-    | redundantPositionalArg   _     msg => msg
+    | unknownFlag              _     msg
+    | missingFlagArg           _ _   msg
+    | duplicateFlag            _ _   msg
+    | redundantFlagArg         _ _ _ msg
+    | invalidFlagType          _ _ _ msg
+    | missingPositionalArg     _     msg
+    | invalidPositionalArgType _ _   msg
+    | redundantPositionalArg   _     msg
     | invalidVariableArgType   _ _   msg => msg
   end ParseError
 
@@ -1068,19 +1068,15 @@ section Parsing
     private def parseError (kind : ParseError.Kind) : ParseM ParseError := do return ⟨← cmd, kind⟩
 
     private partial def parseSubCmds : ParseM Unit := do
-      loop (← cmd)
-    where
-      loop (parent : Cmd) : ParseM Unit := do
-        let some subCmd ← parseSubCmd? parent
-          | do setCmd parent
-        loop subCmd
-      parseSubCmd? (parent : Cmd) : ParseM (Option Cmd) := do
-        let some arg ← peek?
-          | return none
-        let some subCmd ← pure <| parent.subCmd? arg
-          | return none
+      let mut lastSubCmd ← cmd
+      repeat 
+        let some arg ← peek? 
+          | break
+        let some subCmd := lastSubCmd.subCmd? arg 
+          | break
         skip
-        return subCmd
+        lastSubCmd := subCmd
+      setCmd lastSubCmd
 
     private def parseEndOfFlags : ParseM Bool := do
       let some arg ← peek?
@@ -1177,7 +1173,7 @@ section Parsing
     private def readPrefixFlag? : ParseM (Option Parsed.Flag) := do
         let some (flagContent, true) ← readFlagContent?
           | return none
-        let some flag ← pure <|
+        let some flag :=
             (← cmd).flags.filter (¬ ·.isParamless)
             |>.filter            (·.hasShortName)
             |>.filter            (·.shortName!.isPrefixOf flagContent)
@@ -1223,7 +1219,7 @@ section Parsing
     private def parsePositionalArg : ParseM Bool := do
       let some positionalArgValue ← peek?
         | return false
-      let some positionalArg ← pure <| (← cmd).positionalArgs.get? (← parsedPositionalArgs).size
+      let some positionalArg := (← cmd).positionalArgs.get? (← parsedPositionalArgs).size
         | return false
       if ¬ positionalArg.type.isValid positionalArgValue then
         throw <| ← parseError <| invalidPositionalArgType positionalArg positionalArgValue
@@ -1234,7 +1230,7 @@ section Parsing
     private def parseVariableArg : ParseM Bool := do
       let some variableArgValue ← peek?
         | return false
-      let some variableArg ← pure <| (← cmd).variableArg?
+      let some variableArg := (← cmd).variableArg?
         | throw <| ← parseError <| redundantPositionalArg variableArgValue
       if ¬ variableArg.type.isValid variableArgValue then
         throw <| ← parseError <| invalidVariableArgType variableArg variableArgValue
@@ -1243,17 +1239,14 @@ section Parsing
       return true
 
     private partial def parseArgs : ParseM Unit := do
-      loop false
-    where
-      loop (endOfFlags : Bool) : ParseM Unit := do
-        if ← (pure !endOfFlags) <&&> parseEndOfFlags then
-          loop true
-        else if ← (pure !endOfFlags) <&&> parseFlag then
-          loop endOfFlags
-        else if ← parsePositionalArg then
-          loop endOfFlags
-        else if ← parseVariableArg then
-          loop endOfFlags
+      let mut parseEverythingAsArg := false
+      let mut noEndOfInput := true
+      while noEndOfInput do
+        if ← (pure !parseEverythingAsArg) <&&> parseEndOfFlags then
+          parseEverythingAsArg := true
+        noEndOfInput := ← (pure !parseEverythingAsArg) <&&> parseFlag
+                      <||> parsePositionalArg
+                      <||> parseVariableArg
 
     private def parse (c : Cmd) (args : List String) : Except ParseError (Cmd × Parsed) :=
       parse' args.toArray |>.run' {
@@ -1299,48 +1292,48 @@ section Parsing
     def process (c : Cmd) (args : List String) : Except (Cmd × String) (Cmd × Parsed) := do
       let result := c.parse args
       match result with
-      | Except.ok (cmd, parsed) =>
+      | .ok (cmd, parsed) =>
         match cmd.extension? with
         | some ext =>
           let newMeta := ext.extendMeta cmd.meta
           let newCmd := cmd.update' (meta := newMeta)
           match ext.postprocess newMeta parsed with
-          | Except.ok newParsed =>
+          | .ok newParsed =>
             return (newCmd, newParsed)
-          | Except.error msg =>
+          | .error msg =>
             throw (newCmd, msg)
         | none =>
           return (cmd, parsed)
-      | Except.error err =>
+      | .error err =>
         throw (err.cmd, err.kind.msg)
   end Cmd
 end Parsing
 
 section IO
   namespace Cmd
-/--
-Validates `args` by `Cmd.process?`ing the input according to `c`.
-Note that `args` designates the list `<foo>` in `somebinary <foo>`.
-Prints the help or the version of the called (sub)command if the respective flag was passed and
-returns `0` for the exit code.
-If neither of these flags were passed and processing was successful, the `run` handler of the
-called command is executed.
-In the case of a processing error, the error is printed and an exit code of `1` is returned.
--/
-def validate (c : Cmd) (args : List String) : IO UInt32 := do
-  let result := c.process args
-  match result with
-  | Except.ok (cmd, parsed) =>
-    if parsed.hasFlag "help" then
-      cmd.printHelp
-      return 0
-    if parsed.hasFlag "version" then
-      cmd.printVersion
-      return 0
-    cmd.run parsed
-  | Except.error (cmd, err) =>
-    cmd.printError err
-    return 1
+    /--
+    Validates `args` by `Cmd.process?`ing the input according to `c`.
+    Note that `args` designates the list `<foo>` in `somebinary <foo>`.
+    Prints the help or the version of the called (sub)command if the respective flag was passed and
+    returns `0` for the exit code.
+    If neither of these flags were passed and processing was successful, the `run` handler of the
+    called command is executed.
+    In the case of a processing error, the error is printed and an exit code of `1` is returned.
+    -/
+    def validate (c : Cmd) (args : List String) : IO UInt32 := do
+      let result := c.process args
+      match result with
+      | .ok (cmd, parsed) =>
+        if parsed.hasFlag "help" then
+          cmd.printHelp
+          return 0
+        if parsed.hasFlag "version" then
+          cmd.printVersion
+          return 0
+        cmd.run parsed
+      | .error (cmd, err) =>
+        cmd.printError err
+        return 1
   end Cmd
 end IO
 
