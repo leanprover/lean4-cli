@@ -1,6 +1,11 @@
 # lean4-cli
 ## Usage
-See [the documentation of Lake](https://github.com/leanprover/lake).
+See [the documentation of Lake](https://github.com/leanprover/lake). 
+
+Use one of the following for the `<tag>` in the dependency source `Source.git "https://github.com/mhuisi/lean4-cli.git" "<tag>"`:
+- `main` if you want to stay in sync with Lean 4 milestone releases. The `main` branch will contain a working version of lean4-cli for the most recent Lean 4 milestone.
+- `nightly` if you want to stay in sync with Lean 4 nightly releases. The `nightly` branch will contain a working version of lean4-cli for the most recent Lean 4 nightly build.
+- One of the specific release tags if you want to pin a specific version, e.g. `v1.0.0-lv4.0.0-m4` for the current release for the 4th Lean 4 milestone release or `v1.0.0-lnightly-2022-05-21` for the current release for the Lean 4 nightly version from 2022-05-21. Only nightlies where lean4-cli broke will receive a release tag. Please avoid using specific commit hashes since these are not guaranteed to remain static.
 
 ### Configuration
 Commands are configured with a lightweight DSL. The following declarations define a command `exampleCmd` with two subcommands `installCmd` and `testCmd`. `doNothing` and `runExampleCmd` denote the handlers that are called when the command is called and are written out further down below in the **Command Handlers** subsection.
