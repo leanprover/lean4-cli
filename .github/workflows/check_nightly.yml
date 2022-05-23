@@ -1,0 +1,35 @@
+name: check lean4-cli build on current nightly
+
+on:
+  schedule:
+    - cron: '0 14 * * *'
+  workflow_dispatch:
+jobs:
+  build:
+    name: build lean4-cli
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v2
+        with:
+          ref: nightly
+      - name: install elan
+        run: |
+          set -o pipefail
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- --default-toolchain none -y
+          ~/.elan/bin/lean --version
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+      - name: override elan default
+        run: elan override set leanprover/lean4:nightly
+      - name: build lean4-cli
+        run: lake build
+      - name: failure notification
+        if: ${{ failure() }}
+        uses: zulip/github-actions-zulip/send-message@v1
+        with:
+          api-key: ${{ secrets.ZULIP_API_KEY }}
+          email: 'mhuisi@protonmail.com'
+          organization-url: 'https://leanprover.zulipchat.com'
+          to: '221921' # user_id
+          type: 'private'
+          content: 'lean4-cli failed on current nightly'
