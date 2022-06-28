@@ -12,21 +12,21 @@ section Utils
 
   instance [Repr α] [Repr β] : Repr (Except α β) where
     reprPrec
-    | Except.ok a,    n => s!"Except.ok ({repr a})"
-    | Except.error b, n => s!"Except.error ({repr b})"
+    | Except.ok a,    _ => s!"Except.ok ({repr a})"
+    | Except.error b, _ => s!"Except.error ({repr b})"
 
   def Cmd.processParsed (c : Cmd) (args : String) : String := Id.run do
     let mut args := args.splitOn
     if args = [""] then
       args := []
     match c.process args with
-    | Except.ok (cmd, parsed) =>
+    | Except.ok (_, parsed) =>
       return toString parsed
-    | Except.error (cmd, error) =>
+    | Except.error (_, error) =>
       return error
 end Utils
 
-def doNothing (p : Parsed) : IO UInt32 := return 0
+def doNothing (_ : Parsed) : IO UInt32 := return 0
 
 def testSubSubCmd : Cmd := `[Cli|
   testsubsubcommand VIA doNothing; ["0.0.2"]

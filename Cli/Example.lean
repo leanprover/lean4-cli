@@ -2,7 +2,7 @@ import Cli
 
 open Cli
 
-def doNothing (p : Parsed) : IO UInt32 :=
+def doNothing (_ : Parsed) : IO UInt32 :=
   return 0
 
 def runExampleCmd (p : Parsed) : IO UInt32 := do

@@ -88,7 +88,7 @@ section Extensions
       extendMeta := fun meta =>
         let requiredFlags := findRequiredFlags meta
         let newMetaFlags := meta.flags.map fun flag =>
-          if let some requiredFlag := requiredFlags.find? (·.longName = flag.longName) then
+          if requiredFlags.find? (·.longName = flag.longName) |>.isSome then
             { flag with description := "[Required] " ++ flag.description }
           else
             flag

@@ -63,7 +63,7 @@ section Utils
             line.length / maxWidth + 1
         let mut line := line
         let mut result := #[]
-        for i in [:resultLineCount] do
+        for _ in [:resultLineCount] do
           result := result.push <| line.take maxWidth
           line := line.drop maxWidth
         return "\n".intercalate result.toList
@@ -229,7 +229,7 @@ section Configuration
 
   instance : ParseableType Unit where
     name     := "Unit"
-    parse? s := ()
+    parse? _ := ()
 
   instance : ParseableType Bool where
     name := "Bool"
@@ -281,7 +281,7 @@ section Configuration
     beq a b := a.name == b.name
 
   instance : Repr ParamType where
-    reprPrec p n := p.name
+    reprPrec p _ := p.name
 
   instance [inst : ParseableType τ] : CoeDep Type τ ParamType where
     coe := ⟨inst.name τ, (inst.parse? · |>.isSome)⟩
@@ -539,7 +539,7 @@ section Configuration
     /-- Extends the `meta` of a command to adjust the displayed help. -/
     extendMeta  : Cmd.Meta → Cmd.Meta := id
     /-- Processes and validates the output of the parser with the extended `meta` as extra information. -/
-    postprocess : Cmd.Meta → Parsed → Except String Parsed := fun m => pure
+    postprocess : Cmd.Meta → Parsed → Except String Parsed := fun _ => pure
     deriving Inhabited
 
   /--
@@ -1069,10 +1069,10 @@ section Parsing
 
     private partial def parseSubCmds : ParseM Unit := do
       let mut lastSubCmd ← cmd
-      repeat 
-        let some arg ← peek? 
+      repeat
+        let some arg ← peek?
           | break
-        let some subCmd := lastSubCmd.subCmd? arg 
+        let some subCmd := lastSubCmd.subCmd? arg
           | break
         skip
         lastSubCmd := subCmd
@@ -1142,7 +1142,7 @@ section Parsing
         | return none
       match flagContent.splitOn "=" with
       | [] => panic! "Cli.readEqFlag?: String.splitOn returned empty list"
-      | [name] => return none
+      | [_] => return none
       | (flagName :: flagArg :: rest) =>
         let flagValue := "=".intercalate <| flagArg :: rest
         let inputFlag : InputFlag := ⟨flagName, isShort⟩

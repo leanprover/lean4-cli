@@ -1,6 +1,6 @@
 # lean4-cli
 ## Usage
-See [the documentation of Lake](https://github.com/leanprover/lake). 
+See [the documentation of Lake](https://github.com/leanprover/lake).
 
 Use one of the following for the `<tag>` in the dependency source `Source.git "https://github.com/mhuisi/lean4-cli.git" "<tag>"`:
 - `main` if you want to stay in sync with Lean 4 milestone releases. The `main` branch will contain a working version of lean4-cli for the most recent Lean 4 milestone.
@@ -60,7 +60,7 @@ def exampleCmd : Cmd := `[Cli|
 The command handlers `doNothing` and `runExampleCmd` demonstrate how to use the parsed user input.
 
 ```Lean
-def doNothing (p : Parsed) : IO UInt32 :=
+def doNothing (_ : Parsed) : IO UInt32 :=
   return 0
 
 def runExampleCmd (p : Parsed) : IO UInt32 := do
