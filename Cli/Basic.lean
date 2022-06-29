@@ -1,4 +1,5 @@
 import Std.Data.RBTree
+import Lean.Hygiene
 
 section Utils
   /--
@@ -762,42 +763,16 @@ end Configuration
 section Macro
   open Lean
 
-  def expandIdentLiterally (s : Syntax) : Syntax :=
-    if s.isIdent then
-      quote s.getId.toString
-    else
-      s
+  syntax literalIdent := term
 
-  syntax positionalArg := colGe term " : " term "; " term
+  syntax positionalArg := colGe literalIdent " : " term "; " term
 
-  def expandPositionalArg (positionalArg : Syntax) : MacroM Syntax :=
-    let name        := expandIdentLiterally positionalArg[0]
-    let type        := positionalArg[2]
-    let description := positionalArg[4]
-    `(Arg.mk $name $description $type)
+  syntax variableArg := colGe "..." literalIdent " : " term "; " term
 
-  syntax variableArg := colGe "..." term " : " term "; " term
-
-  def expandVariableArg (variableArg : Syntax) : MacroM Syntax := do
-    let name        := expandIdentLiterally variableArg[1]
-    let type        := variableArg[3]
-    let description := variableArg[5]
-    `(Arg.mk $name $description $type)
-
-  syntax flag := colGe term ("," term)? (" : " term)? "; " term
-
-  def expandFlag (flag : Syntax) : MacroM Syntax := do
-    let (shortName, longName) :=
-      if flag[1].isNone then
-        (quote (none : Option String), expandIdentLiterally flag[0])
-      else
-        (expandIdentLiterally flag[0], expandIdentLiterally flag[1][1])
-    let type        := if flag[2].isNone then ← `(Unit) else flag[2][1]
-    let description := flag[4]
-    `(Flag.mk $shortName $longName $description $type)
+  syntax flag := colGe literalIdent ("," literalIdent)? (" : " term)? "; " term
 
   syntax "`[Cli|\n"
-      term " VIA " term "; " "[" term "]"
+      literalIdent " VIA " term "; " "[" term "]"
       term
       ("FLAGS:\n" withPosition((flag)*))?
       ("ARGS:\n" withPosition((positionalArg)* (variableArg)?))?
@@ -805,10 +780,42 @@ section Macro
       ("EXTENSIONS: " sepBy(term, ";", "; "))?
     "\n]" : term
 
+  def expandIdentLiterally (t : Term) : Term :=
+    match t with
+    | `($i:ident) =>
+      quote i.raw.getId.toString
+    | `($t:term) =>
+      t
+
+  def expandPositionalArg (positionalArg : TSyntax `Cli.positionalArg) : MacroM Term := do
+    let `(Cli.positionalArg| $name:term : $type; $description) := positionalArg
+      | Macro.throwUnsupported
+    `(Arg.mk $(expandIdentLiterally name) $description $type)
+
+  def expandVariableArg (variableArg : TSyntax `Cli.variableArg) : MacroM Term := do
+    let `(Cli.variableArg| ...$name:term : $type; $description) := variableArg
+      | Macro.throwUnsupported
+    `(Arg.mk $(expandIdentLiterally name) $description $type)
+
+  def expandFlag (flag : TSyntax `Cli.flag) : MacroM Term := do
+    let `(Cli.flag| $flagName1:term $[, $flagName2:term]? $[ : $type]?; $description) := flag
+      | Macro.throwUnsupported
+    let mut shortName := quote (none : Option String)
+    let mut longName := flagName1
+    if let some flagName2 := flagName2 then
+      shortName := expandIdentLiterally flagName1
+      longName := flagName2
+    let unitType : Term ← `(Unit)
+    let type :=
+      match type with
+      | none => unitType
+      | some type => type
+    `(Flag.mk $shortName $(expandIdentLiterally longName) $description $type)
+
   macro_rules
     | `(`[Cli|
-        $name:term VIA $run:term; [$version:term]
-        $description:term
+        $name:term VIA $run; [$version]
+        $description
         $[FLAGS:
           $flags*
         ]?
@@ -823,13 +830,13 @@ section Macro
           (name           := $(expandIdentLiterally name))
           (version        := $version)
           (description    := $description)
-          (flags          := $((← flags.getD #[] |>.mapM expandFlag) |> quote))
-          (positionalArgs := $((← positionalArgs.getD #[] |>.mapM expandPositionalArg) |> quote))
-          (variableArg?   := $((← variableArg.join.mapM expandVariableArg) |> quote))
+          (flags          := $(quote (← flags.getD #[] |>.mapM expandFlag)))
+          (positionalArgs := $(quote (← positionalArgs.getD #[] |>.mapM expandPositionalArg)))
+          (variableArg?   := $(quote (← variableArg.join.mapM expandVariableArg)))
           (run            := $run)
-          (subCmds        := $(quote <| (subCommands.getD (#[] : Array Syntax) : Array Syntax)))
+          (subCmds        := $(quote (subCommands.getD ⟨#[]⟩).getElems))
           (extension?     := some <| Array.foldl Extension.then { : Extension }
-            $(quote <| (extensions.getD (#[] : Array Syntax) : Array Syntax))))
+            $(quote (extensions.getD ⟨#[]⟩).getElems)))
 end Macro
 
 section Info

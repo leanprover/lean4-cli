@@ -168,15 +168,17 @@ The full example can be found under `./Cli/Example.lean`.
 This section documents only the most common features of the library. For the full documentation, peek into `./Cli/Basic.lean` and `./Cli/Extensions.lean`! All definitions below live in the `Cli` namespace.
 
 ```Lean
--- For many terms below, when the term is an identifier, it is expanded literally.
-syntax positionalArg := colGe term " : " term "; " term
+-- In a literalIdent, identifiers are expanded as `String`s.
+syntax literalIdent := term
 
-syntax variableArg := colGe "..." term " : " term "; " term
+syntax positionalArg := colGe literalIdent " : " term "; " term
 
-syntax flag := colGe term ("," term)? (" : " term)? "; " term
+syntax variableArg := colGe "..." literalIdent " : " term "; " term
+
+syntax flag := colGe literalIdent ("," literalIdent)? (" : " term)? "; " term
 
 syntax "`[Cli|\n"
-    term " VIA " term "; " "[" term "]"
+    literalIdent " VIA " term "; " "[" term "]"
     term
     ("FLAGS:\n" withPosition((flag)*))?
     ("ARGS:\n" withPosition((positionalArg)* (variableArg)?))?
