@@ -26,7 +26,7 @@ section Utils
         return #[]
       let xs := xs.qsort (key · < key ·)
       let mut groups : Array (Array β) := #[#[]]
-      let mut currentRepresentative := key xs[0]
+      let mut currentRepresentative := key xs[0]!
       for x in xs do
         let k := key x
         if k < currentRepresentative ∨ k > currentRepresentative then
@@ -34,7 +34,7 @@ section Utils
           currentRepresentative := k
         else
           let lastIdx := groups.size - 1
-          groups := groups.set! lastIdx <| groups[lastIdx].push x
+          groups := groups.set! lastIdx <| groups[lastIdx]!.push x
       return groups
 
     def join (xss : Array (Array α)) : Array α := Id.run do
@@ -100,7 +100,7 @@ section Utils
         let mut currentLineWidth : Nat          := 0
         let mut result           : Array String := #[]
         for i in [:words.size] do
-          let w := words[i]
+          let w := words[i]!
           -- `w = ""`: we will never insert a newline on a space. this has the effect
           -- of inserting the newline only after a bunch of trailing whitespace, which we remove later.
           -- similarly, `currentLineWidth + w.length ≤ maxWidth` does not count the space after `w` so that
@@ -115,14 +115,13 @@ section Utils
           let wordOnNewLine := "\n" ++ w.wrapAt! maxWidth
           result := result.push wordOnNewLine
           let wrappedLines : Array String := wordOnNewLine.splitOn "\n" |>.toArray
-          currentLineWidth := wrappedLines[wrappedLines.size - 1].length + 1
+          currentLineWidth := wrappedLines[wrappedLines.size - 1]!.length + 1
         return " ".intercalate result.toList
       let trimmed : List String :=
-        wordWrappedLines.map trimTrailingSpaces
-        |>.map fun line => Id.run do
+        wordWrappedLines.map trimTrailingSpaces |>.map fun line => Id.run do
           if line = "" then
             return ""
-          if line[0] ≠ '\n' then
+          if line[0]?.get! ≠ '\n' then
             return line
           return line.drop 1
       return "\n".intercalate trimmed
