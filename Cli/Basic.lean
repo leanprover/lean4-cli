@@ -1,5 +1,4 @@
 import Std.Data.RBTree
-import Lean.Hygiene
 
 section Utils
   /--
@@ -209,8 +208,8 @@ section Utils
     converts the contained value using a `ToString` instance.
     -/
     def optStr [ToString α] : Option α → String
-    | none   => ""
-    | some v => toString v
+      | none   => ""
+      | some v => toString v
   end Option
 end Utils
 
@@ -782,7 +781,7 @@ section Macro
   def expandIdentLiterally (t : Term) : Term :=
     match t with
     | `($i:ident) =>
-      quote i.raw.getId.toString
+      quote i.getId.toString
     | `($t:term) =>
       t
 
@@ -1013,15 +1012,15 @@ section Parsing
 
     /-- Associated message of the error. -/
     def Kind.msg : Kind → String
-    | unknownFlag              _     msg
-    | missingFlagArg           _ _   msg
-    | duplicateFlag            _ _   msg
-    | redundantFlagArg         _ _ _ msg
-    | invalidFlagType          _ _ _ msg
-    | missingPositionalArg     _     msg
-    | invalidPositionalArgType _ _   msg
-    | redundantPositionalArg   _     msg
-    | invalidVariableArgType   _ _   msg => msg
+      | unknownFlag              _     msg
+      | missingFlagArg           _ _   msg
+      | duplicateFlag            _ _   msg
+      | redundantFlagArg         _ _ _ msg
+      | invalidFlagType          _ _ _ msg
+      | missingPositionalArg     _     msg
+      | invalidPositionalArgType _ _   msg
+      | redundantPositionalArg   _     msg
+      | invalidVariableArgType   _ _   msg => msg
   end ParseError
 
   open ParseError in
@@ -1177,23 +1176,23 @@ section Parsing
       return some ⟨flag, flagValue⟩
 
     private def readPrefixFlag? : ParseM (Option Parsed.Flag) := do
-        let some (flagContent, true) ← readFlagContent?
-          | return none
-        let some flag :=
-            (← cmd).flags.filter (¬ ·.isParamless)
-            |>.filter            (·.hasShortName)
-            |>.filter            (·.shortName!.isPrefixOf flagContent)
-            |>.filter            (·.shortName!.length < flagContent.length)
-            |>.qsort             (·.shortName!.length > ·.shortName!.length)
-            |>.get? 0
-          | return none
-        let flagName  := flag.shortName!
-        let flagValue := flagContent.drop flagName.length
-        let inputFlag : InputFlag := ⟨flagName, true⟩
-        ensureFlagUnique flag inputFlag
-        ensureFlagWellTyped flag inputFlag flagValue
-        skip
-        return some ⟨flag, flagValue⟩
+      let some (flagContent, true) ← readFlagContent?
+        | return none
+      let some flag :=
+          (← cmd).flags.filter (¬ ·.isParamless)
+          |>.filter            (·.hasShortName)
+          |>.filter            (·.shortName!.isPrefixOf flagContent)
+          |>.filter            (·.shortName!.length < flagContent.length)
+          |>.qsort             (·.shortName!.length > ·.shortName!.length)
+          |>.get? 0
+        | return none
+      let flagName  := flag.shortName!
+      let flagValue := flagContent.drop flagName.length
+      let inputFlag : InputFlag := ⟨flagName, true⟩
+      ensureFlagUnique flag inputFlag
+      ensureFlagWellTyped flag inputFlag flagValue
+      skip
+      return some ⟨flag, flagValue⟩
 
     private def readParamlessFlag? : ParseM (Option Parsed.Flag) := do
       let some (flagName, isShort) ← readFlagContent?
