@@ -1333,7 +1333,7 @@ section IO
     returns `0` for the exit code.
     If neither of these flags were passed and processing was successful, the `run` handler of the
     called command is executed.
-    In the case of a processing error, the error is printed and an exit code of `1` is returned.
+    In the case of a processing error, the error is printed to stderr and an exit code of `1` is returned.
     -/
     def validate (c : Cmd) (args : List String) : IO UInt32 := do
       let result := c.process args
