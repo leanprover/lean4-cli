@@ -938,7 +938,7 @@ section Info
     /-- Prints the help for `c`. -/
     def printHelp    (c : Cmd)                : IO Unit := IO.println c.help
     /-- Prints an error for `c` with the designated message `msg`. -/
-    def printError   (c : Cmd) (msg : String) : IO Unit := IO.println <| c.error msg
+    def printError   (c : Cmd) (msg : String) : IO Unit := IO.eprintln <| c.error msg
     /-- Prints the version of `c`. -/
     def printVersion (c : Cmd)                : IO Unit := IO.println c.version
   end Cmd
