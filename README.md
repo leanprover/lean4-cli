@@ -8,19 +8,19 @@ Use one of the following for the `<tag>` in the dependency source `Source.git "h
 - One of the specific release tags if you want to pin a specific version, e.g. `v1.0.0-lv4.0.0-m4` for the current release for the 4th Lean 4 milestone release or `v1.0.0-lnightly-2022-05-21` for the current release for the Lean 4 nightly version from 2022-05-21. Only nightlies where lean4-cli broke will receive a release tag. Please avoid using specific commit hashes since these are not guaranteed to remain static.
 
 ### Configuration
-Commands are configured with a lightweight DSL. The following declarations define a command `exampleCmd` with two subcommands `installCmd` and `testCmd`. `doNothing` and `runExampleCmd` denote the handlers that are called when the command is called and are written out further down below in the **Command Handlers** subsection.
+Commands are configured with a lightweight DSL. The following declarations define a command `exampleCmd` with two subcommands `installCmd` and `testCmd`. `runExampleCmd` denotes a handler that is called when the command is run and is described further down below in the **Command Handlers** subsection.
 
 ```Lean
 open Cli
 
 def installCmd := `[Cli|
-  installCmd VIA doNothing; ["0.0.1"]
-  "installCmd provides an example for a subcommand without flags or arguments."
+  installCmd NOOP; ["0.0.1"]
+  "installCmd provides an example for a subcommand without flags or arguments that does nothing."
 ]
 
 def testCmd := `[Cli|
-  testCmd VIA doNothing; ["0.0.1"]
-  "testCmd provides another example for a subcommand without flags or arguments."
+  testCmd NOOP; ["0.0.1"]
+  "testCmd provides another example for a subcommand without flags or arguments that does nothing."
 ]
 
 def exampleCmd : Cmd := `[Cli|
@@ -57,12 +57,9 @@ def exampleCmd : Cmd := `[Cli|
 ```
 
 ### Command handlers
-The command handlers `doNothing` and `runExampleCmd` demonstrate how to use the parsed user input.
+The command handler `runExampleCmd` demonstrates how to use the parsed user input.
 
 ```Lean
-def doNothing (_ : Parsed) : IO UInt32 :=
-  return 0
-
 def runExampleCmd (p : Parsed) : IO UInt32 := do
   let input   : String       := p.positionalArg! "input" |>.as! String
   let outputs : Array String := p.variableArgsAs! String
@@ -157,9 +154,9 @@ ARGS:
 
 SUBCOMMANDS:
     installCmd  installCmd provides an example for a subcommand without flags or
-                arguments.
+                arguments that does nothing.
     testCmd     testCmd provides another example for a subcommand without flags
-                or arguments.
+                or arguments that does nothing.
 ```
 
 The full example can be found under `./Cli/Example.lean`.
@@ -171,6 +168,8 @@ This section documents only the most common features of the library. For the ful
 -- In a literalIdent, identifiers are expanded as `String`s.
 syntax literalIdent := term
 
+syntax runFun := (" VIA " term) <|> " NOOP"
+
 syntax positionalArg := colGe literalIdent " : " term "; " term
 
 syntax variableArg := colGe "..." literalIdent " : " term "; " term
@@ -178,7 +177,7 @@ syntax variableArg := colGe "..." literalIdent " : " term "; " term
 syntax flag := colGe literalIdent ("," literalIdent)? (" : " term)? "; " term
 
 syntax "`[Cli|\n"
-    literalIdent " VIA " term "; " "[" term "]"
+    literalIdent runFun "; " "[" term "]"
     term
     ("FLAGS:\n" withPosition((flag)*))?
     ("ARGS:\n" withPosition((positionalArg)* (variableArg)?))?

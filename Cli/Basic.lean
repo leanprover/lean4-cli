@@ -763,6 +763,8 @@ section Macro
 
   syntax literalIdent := term
 
+  syntax runFun := (" VIA " term) <|> " NOOP"
+
   syntax positionalArg := colGe literalIdent " : " term "; " term
 
   syntax variableArg := colGe "..." literalIdent " : " term "; " term
@@ -770,7 +772,7 @@ section Macro
   syntax flag := colGe literalIdent ("," literalIdent)? (" : " term)? "; " term
 
   syntax "`[Cli|\n"
-      literalIdent " VIA " term "; " "[" term "]"
+      literalIdent runFun "; " "[" term "]"
       term
       ("FLAGS:\n" withPosition((flag)*))?
       ("ARGS:\n" withPosition((positionalArg)* (variableArg)?))?
@@ -784,6 +786,14 @@ section Macro
       quote i.getId.toString
     | `($t:term) =>
       t
+
+  def expandRunFun (runFun : TSyntax `Cli.runFun) : MacroM Term :=
+    match runFun with
+    | `(Cli.runFun| VIA $run) =>
+      `($run)
+    | `(Cli.runFun| NOOP) =>
+      `(fun _ => pure 0)
+    | _ => Macro.throwUnsupported
 
   def expandPositionalArg (positionalArg : TSyntax `Cli.positionalArg) : MacroM Term := do
     let `(Cli.positionalArg| $name:term : $type; $description) := positionalArg
@@ -812,7 +822,7 @@ section Macro
 
   macro_rules
     | `(`[Cli|
-        $name:term VIA $run; [$version]
+        $name:term $run:runFun; [$version]
         $description
         $[FLAGS:
           $flags*
@@ -831,7 +841,7 @@ section Macro
           (flags          := $(quote (← flags.getD #[] |>.mapM expandFlag)))
           (positionalArgs := $(quote (← positionalArgs.getD #[] |>.mapM expandPositionalArg)))
           (variableArg?   := $(quote (← variableArg.join.mapM expandVariableArg)))
-          (run            := $run)
+          (run            := $(← expandRunFun run))
           (subCmds        := $(quote (subCommands.getD ⟨#[]⟩).getElems))
           (extension?     := some <| Array.foldl Extension.then { : Extension }
             $(quote (extensions.getD ⟨#[]⟩).getElems)))

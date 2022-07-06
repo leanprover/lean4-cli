@@ -34,7 +34,7 @@ def testSubSubCmd : Cmd := `[Cli|
 ]
 
 def testSubCmd1 : Cmd := `[Cli|
-  testsubcommand1 VIA doNothing; ["0.0.1"]
+  testsubcommand1 NOOP; ["0.0.1"]
   "a properly short description"
 
   FLAGS:
