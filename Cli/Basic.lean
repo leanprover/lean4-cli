@@ -120,7 +120,7 @@ section Utils
         wordWrappedLines.map trimTrailingSpaces |>.map fun line => Id.run do
           if line = "" then
             return ""
-          if line[0]?.get! ≠ '\n' then
+          if line.get! 0 ≠ '\n' then
             return line
           return line.drop 1
       return "\n".intercalate trimmed
