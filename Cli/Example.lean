@@ -23,12 +23,13 @@ def runExampleCmd (p : Parsed) : IO UInt32 := do
   return 0
 
 def installCmd := `[Cli|
-  installCmd NOOP; ["0.0.1"]
-  "installCmd provides an example for a subcommand without flags or arguments that does nothing."
+  installCmd NOOP;
+  "installCmd provides an example for a subcommand without flags or arguments that does nothing. " ++
+  "Versions can be omitted."
 ]
 
 def testCmd := `[Cli|
-  testCmd NOOP; ["0.0.1"]
+  testCmd NOOP;
   "testCmd provides another example for a subcommand without flags or arguments that does nothing."
 ]
 
@@ -132,7 +133,7 @@ Yields:
 
   SUBCOMMANDS:
       installCmd  installCmd provides an example for a subcommand without flags or
-                  arguments that does nothing.
+                  arguments that does nothing. Versions can be omitted.
       testCmd     testCmd provides another example for a subcommand without flags
                   or arguments that does nothing.
 -/

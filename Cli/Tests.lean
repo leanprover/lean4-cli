@@ -29,7 +29,7 @@ end Utils
 def doNothing (_ : Parsed) : IO UInt32 := return 0
 
 def testSubSubCmd : Cmd := `[Cli|
-  testsubsubcommand VIA doNothing; ["0.0.2"]
+  testsubsubcommand VIA doNothing;
   "does this even do anything?"
 ]
 
@@ -242,7 +242,7 @@ section Info
     == "testcommand [0.0.0]\nsome short description that happens to be much longer than necessary and hence\nneeds to be wrapped to fit into an 80 character width limit\n\nUSAGE:\n    testcommand [SUBCOMMAND] [FLAGS] <input1> <input2> <outputs>...\n\nFLAGS:\n    -h, --help                 Prints this message.\n    --version                  Prints the version.\n    --verbose                  a very verbose flag description that also needs\n                               to be wrapped to fit into an 80 character width\n                               limit\n    -x, --unknown1             this flag has a short name\n    -xn, --unknown2            short names do not need to be prefix-free\n    -ny, --unknown3            -xny will parse as -x -ny and not fail to parse\n                               as -xn -y\n    -t, --typed1 : String      flags can have typed parameters\n    -ty, --typed2              -ty parsed as --typed2, not -t=y\n    -p-n, --level-param : Nat  hyphens work, too\n\nARGS:\n    input1 : String     another very verbose description that also needs to be\n                        wrapped to fit into an 80 character width limit\n    input2 : Array Nat  arrays!\n    outputs : Nat       varargs!\n\nSUBCOMMANDS:\n    testsubcommand1  a properly short description\n    testsubcommand2  does not do anything interesting"
 
   #eval
-    testCmd.version
+    testCmd.version!
     == "0.0.0"
 
   /-
@@ -294,7 +294,7 @@ section Info
     == "testcommand testsubcommand2 [0.0.-1]\ndoes not do anything interesting\n\nUSAGE:\n    testcommand testsubcommand2 [FLAGS] <ominous-input>\n\nFLAGS:\n    -h, --help  Prints this message.\n    --version   Prints the version.\n    -r, --run   really, this does not do anything. trust me.\n\nARGS:\n    ominous-input : Array String  what could this be for?"
 
   /-
-  testcommand testsubcommand1 testsubsubcommand [0.0.2]
+  testcommand testsubcommand1 testsubsubcommand
   does this even do anything?
 
   USAGE:
@@ -302,11 +302,10 @@ section Info
 
   FLAGS:
       -h, --help  Prints this message.
-      --version   Prints the version.
   -/
   #eval
     (testCmd.subCmd! "testsubcommand1" |>.subCmd! "testsubsubcommand").help
-    == "testcommand testsubcommand1 testsubsubcommand [0.0.2]\ndoes this even do anything?\n\nUSAGE:\n    testcommand testsubcommand1 testsubsubcommand [FLAGS]\n\nFLAGS:\n    -h, --help  Prints this message.\n    --version   Prints the version."
+    == "testcommand testsubcommand1 testsubsubcommand\ndoes this even do anything?\n\nUSAGE:\n    testcommand testsubcommand1 testsubsubcommand [FLAGS]\n\nFLAGS:\n    -h, --help  Prints this message."
 
   /-
   testcommand [0.0.0]

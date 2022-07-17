@@ -422,7 +422,7 @@ section Configuration
     -/
     parentNames         : Array String
     /-- Version of the command that is displayed in the help and when the version is queried. -/
-    version             : String
+    version?            : Option String
     /-- Description that is displayed in the help. -/
     description         : String
     /-- Information appended to the end of the help. Useful for command extensions. -/
@@ -439,11 +439,15 @@ section Configuration
     /-- Full name from the root to this command, including the name of the command itself. -/
     def fullName (m : Meta) : String := m.parentNames.push m.name |>.toList |> " ".intercalate
 
+    /-- Version of the command that is displayed in the help and when the version is queried. -/
+    def version!            (m : Meta) : String := m.version?.get!
     /-- Information appended to the end of the help. Useful for command extensions. -/
     def furtherInformation! (m : Meta) : String := m.furtherInformation?.get!
     /-- Variable argument after the end of the positional arguments. -/
     def variableArg!        (m : Meta) : Arg    := m.variableArg?.get!
 
+    /-- Checks whether `m` has a version. -/
+    def hasVersion            (m : Meta) : Bool := m.version?.isSome
     /-- Checks whether `m` has information appended to the end of the help. -/
     def hasFurtherInformation (m : Meta) : Bool := m.furtherInformation?.isSome
     /-- Checks whether `m` supports a variable argument. -/
@@ -587,7 +591,7 @@ section Configuration
     -/
     def parentNames         (c : Cmd) : Array String  := c.meta.parentNames
     /-- Version of `c` that is displayed in the help and when the version is queried. -/
-    def version             (c : Cmd) : String        := c.meta.version
+    def version?            (c : Cmd) : Option String := c.meta.version?
     /-- Description that is displayed in the help. -/
     def description         (c : Cmd) : String        := c.meta.description
     /-- Information appended to the end of the help. Useful for command extensions. -/
@@ -602,6 +606,8 @@ section Configuration
     /-- Full name from the root to `c`, including the name of `c` itself. -/
     def fullName (c : Cmd) : String := c.meta.fullName
 
+    /-- Version of `c` that is displayed in the help and when the version is queried. -/
+    def version!            (c : Cmd) : String    := c.meta.version!
     /-- Information appended to the end of the help. Useful for command extensions. -/
     def furtherInformation! (c : Cmd) : String    := c.meta.furtherInformation!
     /-- Variable argument after the end of the positional arguments. -/
@@ -609,6 +615,8 @@ section Configuration
     /-- Extension of the Cli library. -/
     def extension!          (c : Cmd) : Extension := c.extension?.get!
 
+    /-- Checks whether `c` has a version. -/
+    def hasVersion            (c : Cmd) : Bool := c.meta.hasVersion
     /-- Checks whether `c` has information appended to the end of the help. -/
     def hasFurtherInformation (c : Cmd) : Bool := c.meta.hasFurtherInformation
     /-- Checks whether `c` supports a variable argument. -/
@@ -637,7 +645,7 @@ section Configuration
     - `name`:                Name that is displayed in the help.
     - `parentNames`:         Names of the commands of which `c` is a subcommand. Corresponds to the path from the root to `c`.
                              Typically initialized by `Cmd.mk` or `Cmd.mk'`.
-    - `version`:             Version that is displayed in the help and when the version is queried.
+    - `version?`:            Version that is displayed in the help and when the version is queried.
     - `description`:         Description that is displayed in the help.
     - `furtherInformation?`: Information appended to the end of the help. Useful for command extensions.
     - `flags`:               Supported flags ("options" in standard terminology).
@@ -651,7 +659,7 @@ section Configuration
       (c                   : Cmd)
       (name                : String             := c.name)
       (parentNames         : Array String       := c.parentNames)
-      (version             : String             := c.version)
+      (version?            : Option String      := c.version?)
       (description         : String             := c.description)
       (furtherInformation? : Option String      := c.furtherInformation?)
       (flags               : Array Flag         := c.flags)
@@ -662,11 +670,11 @@ section Configuration
       (extension?          : Option Extension   := c.extension?)
       : Cmd :=
       Cmd.init
-        ⟨name, parentNames, version, description, furtherInformation?, flags, positionalArgs, variableArg?⟩
+        ⟨name, parentNames, version?, description, furtherInformation?, flags, positionalArgs, variableArg?⟩
         run subCmds extension?
 
     /--
-    Creates a new command. Adds a `-h, --help` and a `--version` flag.
+    Creates a new command. Adds a `-h, --help` and a `--version` flag if `meta` designates a version.
     Updates the `parentNames` of all subcommands.
     - `meta`:       Non-recursive meta-data.
     - `run`:        Handler to run when the command is called and flags/arguments have been successfully processed.
@@ -683,10 +691,13 @@ section Configuration
         (shortName?  := "h")
         (longName    := "help")
         (description := "Prints this message.")
-      let versionFlag := .paramless
-        (longName    := "version")
-        (description := "Prints the version.")
-      let meta := { meta with flags := #[helpFlag, versionFlag] ++ meta.flags }
+      let mut fixedFlags := #[helpFlag]
+      if meta.hasVersion then
+        let versionFlag := .paramless
+          (longName    := "version")
+          (description := "Prints the version.")
+        fixedFlags := fixedFlags.push versionFlag
+      let meta := { meta with flags := fixedFlags ++ meta.flags }
       let c := .init meta run subCmds extension?
       updateParentNames c
     where
@@ -697,10 +708,10 @@ section Configuration
         c.update (subCmds := subCmds)
 
     /--
-    Creates a new command. Adds a `-h, --help` and a `--version` flag.
+    Creates a new command. Adds a `-h, --help` and a `--version` flag if a version is designated.
     Updates the `parentNames` of all subcommands.
     - `name`:                Name that is displayed in the help.
-    - `version`:             Version that is displayed in the help and when the version is queried.
+    - `version?`:            Version that is displayed in the help and when the version is queried.
     - `description`:         Description that is displayed in the help.
     - `furtherInformation?`: Information appended to the end of the help. Useful for command extensions.
     - `flags`:               Supported flags ("options" in standard terminology).
@@ -712,7 +723,7 @@ section Configuration
     -/
     def mk
       (name                : String)
-      (version             : String)
+      (version?            : Option String)
       (description         : String)
       (furtherInformation? : Option String := none)
       (flags               : Array Flag    := #[])
@@ -723,7 +734,7 @@ section Configuration
       (extension?          : Option Extension := none)
       : Cmd :=
       mk'
-        ⟨name, #[], version, description, furtherInformation?, flags, positionalArgs, variableArg?⟩
+        ⟨name, #[], version?, description, furtherInformation?, flags, positionalArgs, variableArg?⟩
         run subCmds extension?
 
     /-- Finds the flag in `c` with the corresponding `longName`. -/
@@ -772,7 +783,7 @@ section Macro
   syntax flag := colGe literalIdent ("," literalIdent)? (" : " term)? "; " term
 
   syntax "`[Cli|\n"
-      literalIdent runFun "; " "[" term "]"
+      literalIdent runFun "; " ("[" term "]")?
       term
       ("FLAGS:\n" withPosition((flag)*))?
       ("ARGS:\n" withPosition((positionalArg)* (variableArg)?))?
@@ -822,7 +833,7 @@ section Macro
 
   macro_rules
     | `(`[Cli|
-        $name:term $run:runFun; [$version]
+        $name:term $run:runFun; $[[$version]]?
         $description
         $[FLAGS:
           $flags*
@@ -836,7 +847,7 @@ section Macro
       ]) => do
         `(Cmd.mk
           (name           := $(expandIdentLiterally name))
-          (version        := $version)
+          (version?       := $(quote version))
           (description    := $description)
           (flags          := $(quote (← flags.getD #[] |>.mapM expandFlag)))
           (positionalArgs := $(quote (← positionalArgs.getD #[] |>.mapM expandPositionalArg)))
@@ -894,8 +905,9 @@ section Info
 
   namespace Cmd
     private def metaDataInfo (c : Cmd) : String :=
+      let version? : Option String := do return s!"[{← c.version?}]"
       lines #[
-        s!"{c.fullName} [{c.version}]".wrapWordsAt! maxWidth,
+        line #[c.fullName, version?.optStr] |>.wrapWordsAt! maxWidth,
         c.description.wrapWordsAt! maxWidth
       ]
 
@@ -946,11 +958,11 @@ section Info
       ]
 
     /-- Prints the help for `c`. -/
-    def printHelp    (c : Cmd)                : IO Unit := IO.println c.help
+    def printHelp     (c : Cmd)                : IO Unit := IO.println c.help
     /-- Prints an error for `c` with the designated message `msg`. -/
-    def printError   (c : Cmd) (msg : String) : IO Unit := IO.eprintln <| c.error msg
-    /-- Prints the version of `c`. -/
-    def printVersion (c : Cmd)                : IO Unit := IO.println c.version
+    def printError    (c : Cmd) (msg : String) : IO Unit := IO.eprintln <| c.error msg
+    /-- Prints the version of `c`. Panics if `c` has no version. -/
+    def printVersion! (c : Cmd)                : IO Unit := IO.println c.version!
   end Cmd
 end Info
 
@@ -1281,7 +1293,7 @@ section Parsing
           positionalArgs := ← parsedPositionalArgs
           variableArgs   := ← parsedVariableArgs
         }
-        if parsed.hasFlag "help" ∨ parsed.hasFlag "version" then
+        if parsed.hasFlag "help" ∨ parsed.cmd.hasVersion ∧ parsed.hasFlag "version" then
           return (← cmd, parsed)
         if (← parsedPositionalArgs).size < (← cmd).positionalArgs.size then
           throw <| ← parseError <| missingPositionalArg <| (← cmd).positionalArgs.get! (← parsedPositionalArgs).size
@@ -1342,8 +1354,8 @@ section IO
         if parsed.hasFlag "help" then
           cmd.printHelp
           return 0
-        if parsed.hasFlag "version" then
-          cmd.printVersion
+        if cmd.hasVersion ∧ parsed.hasFlag "version" then
+          cmd.printVersion!
           return 0
         cmd.run parsed
       | .error (cmd, err) =>

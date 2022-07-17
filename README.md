@@ -14,12 +14,13 @@ Commands are configured with a lightweight DSL. The following declarations defin
 open Cli
 
 def installCmd := `[Cli|
-  installCmd NOOP; ["0.0.1"]
-  "installCmd provides an example for a subcommand without flags or arguments that does nothing."
+  installCmd NOOP;
+  "installCmd provides an example for a subcommand without flags or arguments that does nothing. " ++
+  "Versions can be omitted."
 ]
 
 def testCmd := `[Cli|
-  testCmd NOOP; ["0.0.1"]
+  testCmd NOOP;
   "testCmd provides another example for a subcommand without flags or arguments that does nothing."
 ]
 
@@ -154,7 +155,7 @@ ARGS:
 
 SUBCOMMANDS:
     installCmd  installCmd provides an example for a subcommand without flags or
-                arguments that does nothing.
+                arguments that does nothing. Versions can be omitted.
     testCmd     testCmd provides another example for a subcommand without flags
                 or arguments that does nothing.
 ```
@@ -177,7 +178,7 @@ syntax variableArg := colGe "..." literalIdent " : " term "; " term
 syntax flag := colGe literalIdent ("," literalIdent)? (" : " term)? "; " term
 
 syntax "`[Cli|\n"
-    literalIdent runFun "; " "[" term "]"
+    literalIdent runFun "; " ("[" term "]")?
     term
     ("FLAGS:\n" withPosition((flag)*))?
     ("ARGS:\n" withPosition((positionalArg)* (variableArg)?))?
@@ -199,15 +200,15 @@ In the case of a processing error, the error is printed to stderr and an exit co
 def validate (c : Cmd) (args : List String) : IO UInt32 := do
   let result := c.process args
   match result with
-  | Except.ok (cmd, parsed) =>
+  | .ok (cmd, parsed) =>
     if parsed.hasFlag "help" then
       cmd.printHelp
       return 0
-    if parsed.hasFlag "version" then
-      cmd.printVersion
+    if cmd.hasVersion ∧ parsed.hasFlag "version" then
+      cmd.printVersion!
       return 0
     cmd.run parsed
-  | Except.error (cmd, err) =>
+  | .error (cmd, err) =>
     cmd.printError err
     return 1
 ```
@@ -314,10 +315,10 @@ end Parsed
 ```
 ```Lean
 /--
-Creates a new command. Adds a `-h, --help` and a `--version` flag.
+Creates a new command. Adds a `-h, --help` and a `--version` flag if a version is designated.
 Updates the `parentNames` of all subcommands.
 - `name`:                Name that is displayed in the help.
-- `version`:             Version that is displayed in the help and when the version is queried.
+- `version?`:            Version that is displayed in the help and when the version is queried.
 - `description`:         Description that is displayed in the help.
 - `furtherInformation?`: Information appended to the end of the help. Useful for command extensions.
 - `flags`:               Supported flags ("options" in standard terminology).
@@ -327,9 +328,9 @@ Updates the `parentNames` of all subcommands.
 - `subCmds`:             Subcommands.
 - `extension?`:          Extension of the Cli library.
 -/
-def Cmd.mk
+def mk
   (name                : String)
-  (version             : String)
+  (version?            : Option String)
   (description         : String)
   (furtherInformation? : Option String := none)
   (flags               : Array Flag    := #[])
