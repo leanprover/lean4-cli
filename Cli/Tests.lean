@@ -242,7 +242,7 @@ section Info
     == "testcommand [0.0.0]\nsome short description that happens to be much longer than necessary and hence\nneeds to be wrapped to fit into an 80 character width limit\n\nUSAGE:\n    testcommand [SUBCOMMAND] [FLAGS] <input1> <input2> <outputs>...\n\nFLAGS:\n    -h, --help                 Prints this message.\n    --version                  Prints the version.\n    --verbose                  a very verbose flag description that also needs\n                               to be wrapped to fit into an 80 character width\n                               limit\n    -x, --unknown1             this flag has a short name\n    -xn, --unknown2            short names do not need to be prefix-free\n    -ny, --unknown3            -xny will parse as -x -ny and not fail to parse\n                               as -xn -y\n    -t, --typed1 : String      flags can have typed parameters\n    -ty, --typed2              -ty parsed as --typed2, not -t=y\n    -p-n, --level-param : Nat  hyphens work, too\n\nARGS:\n    input1 : String     another very verbose description that also needs to be\n                        wrapped to fit into an 80 character width limit\n    input2 : Array Nat  arrays!\n    outputs : Nat       varargs!\n\nSUBCOMMANDS:\n    testsubcommand1  a properly short description\n    testsubcommand2  does not do anything interesting"
 
   #eval
-    testCmd.version!
+    testCmd.meta.version!
     == "0.0.0"
 
   /-

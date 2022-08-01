@@ -482,32 +482,60 @@ section Configuration
     def hasFlagByShortName (m : Meta) (name : String) : Bool := m.flagByShortName? name |>.isSome
   end Cmd.Meta
 
+  /-- 
+  Represents a recursive variant of `Cmd.Meta` that is used in `Parsed`
+  to replicate the recursive subcommand structure of a command
+  without referring to the command itself.
+  -/
+  inductive Parsed.Cmd
+    | init
+      (meta    : Cmd.Meta)
+      (subCmds : Array Parsed.Cmd)
+    deriving Inhabited
+
+  namespace Parsed.Cmd
+    /-- Meta of this command. -/
+    def meta    : Parsed.Cmd → Cmd.Meta         | init v _ => v
+    /-- Subcommands. -/
+    def subCmds : Parsed.Cmd → Array Parsed.Cmd | init _ v => v
+
+    /-- Finds the subcommand in `c` with the corresponding `name`. -/
+    def subCmd? (c : Parsed.Cmd) (name : String) : Option Parsed.Cmd := c.subCmds.find? (·.meta.name = name)
+
+    /-- Finds the subcommand in `c` with the corresponding `name`. -/
+    def subCmd! (c : Parsed.Cmd) (name : String) : Parsed.Cmd := c.subCmd? name |>.get!
+
+    /-- Checks whether `c` contains a subcommand with the corresponding `name`. -/
+    def hasSubCmd (c : Parsed.Cmd) (name : String) : Bool := c.subCmd? name |>.isSome
+  end Parsed.Cmd
+
+  /-- Represents parsed user input data. -/
   structure Parsed where
-    /-- Non-recursive meta-data of the associated command. -/
-    cmd            : Cmd.Meta
+    /-- Recursive meta-data of the associated command. -/
+    cmd            : Parsed.Cmd
     /-- Parsed flags. -/
     flags          : Array Parsed.Flag
     /-- Parsed positional arguments. -/
     positionalArgs : Array Parsed.Arg
     /-- Parsed variable arguments. -/
     variableArgs   : Array Parsed.Arg
-    deriving Inhabited, BEq, Repr
+    deriving Inhabited
 
   namespace Parsed
     /-- Finds the parsed flag in `p` with the corresponding `longName`. -/
     def flag?          (p : Parsed) (longName : String) : Option Flag := p.flags.find? (·.flag.longName = longName)
     /-- Finds the parsed positional argument in `p` with the corresponding `name`. -/
-    def positionalArg? (p : Parsed) (name : String)     : Option Arg  := p.positionalArgs.find? (·.arg.name = name)
+    def positionalArg? (p : Parsed) (name     : String) : Option Arg  := p.positionalArgs.find? (·.arg.name = name)
 
     /-- Finds the parsed flag in `p` with the corresponding `longName`. -/
     def flag!          (p : Parsed) (longName : String) : Flag := p.flag? longName |>.get!
     /-- Finds the parsed positional argument in `p` with the corresponding `name`. -/
-    def positionalArg! (p : Parsed) (name : String)     : Arg  := p.positionalArg? name |>.get!
+    def positionalArg! (p : Parsed) (name     : String) : Arg  := p.positionalArg? name |>.get!
 
     /-- Checks whether `p` has a parsed flag with the corresponding `longName`. -/
     def hasFlag          (p : Parsed) (longName : String) : Bool := p.flag? longName |>.isSome
     /-- Checks whether `p` has a positional argument with the corresponding `longName`. -/
-    def hasPositionalArg (p : Parsed) (name : String)     : Bool := p.positionalArg? name |>.isSome
+    def hasPositionalArg (p : Parsed) (name     : String) : Bool := p.positionalArg? name |>.isSome
 
     /--
     Converts all `p.variableArgs` values to `τ`, which should be the same type
@@ -529,7 +557,7 @@ section Configuration
 
     instance : ToString Parsed where
       toString p :=
-        s!"cmd: {p.cmd.fullName}; flags: {toString p.flags}; positionalArgs: {toString p.positionalArgs}; " ++
+        s!"cmd: {p.cmd.meta.fullName}; flags: {toString p.flags}; positionalArgs: {toString p.positionalArgs}; " ++
         s!"variableArgs: {toString p.variableArgs}"
   end Parsed
 
@@ -568,10 +596,7 @@ section Configuration
       (run        : Parsed → IO UInt32)
       (subCmds    : Array Cmd)
       (extension? : Option Extension)
-
-  open Inhabited in
-  instance : Inhabited Cmd where
-    default := Cmd.init default default default default
+    deriving Inhabited
 
   namespace Cmd
     /-- Non-recursive meta-data. -/
@@ -582,47 +607,6 @@ section Configuration
     def subCmds    : Cmd → Array Cmd            | init _ _ v _ => v
     /-- Extension of the Cli library. -/
     def extension? : Cmd → Option Extension     | init _ _ _ v => v
-
-    /-- Name that is displayed in the help. -/
-    def name                (c : Cmd) : String        := c.meta.name
-    /--
-    Names of the commands of which `c` is a subcommand. Corresponds to the path from the root to `c`.
-    Typically initialized by `Cmd.mk` or `Cmd.mk'`.
-    -/
-    def parentNames         (c : Cmd) : Array String  := c.meta.parentNames
-    /-- Version of `c` that is displayed in the help and when the version is queried. -/
-    def version?            (c : Cmd) : Option String := c.meta.version?
-    /-- Description that is displayed in the help. -/
-    def description         (c : Cmd) : String        := c.meta.description
-    /-- Information appended to the end of the help. Useful for command extensions. -/
-    def furtherInformation? (c : Cmd) : Option String := c.meta.furtherInformation?
-    /-- Supported flags ("options" in standard terminology). -/
-    def flags               (c : Cmd) : Array Flag    := c.meta.flags
-    /-- Supported positional arguments ("operands" in standard terminology). -/
-    def positionalArgs      (c : Cmd) : Array Arg     := c.meta.positionalArgs
-    /-- Variable argument at the end of the positional arguments. -/
-    def variableArg?        (c : Cmd) : Option Arg    := c.meta.variableArg?
-
-    /-- Full name from the root to `c`, including the name of `c` itself. -/
-    def fullName (c : Cmd) : String := c.meta.fullName
-
-    /-- Version of `c` that is displayed in the help and when the version is queried. -/
-    def version!            (c : Cmd) : String    := c.meta.version!
-    /-- Information appended to the end of the help. Useful for command extensions. -/
-    def furtherInformation! (c : Cmd) : String    := c.meta.furtherInformation!
-    /-- Variable argument after the end of the positional arguments. -/
-    def variableArg!        (c : Cmd) : Arg       := c.meta.variableArg!
-    /-- Extension of the Cli library. -/
-    def extension!          (c : Cmd) : Extension := c.extension?.get!
-
-    /-- Checks whether `c` has a version. -/
-    def hasVersion            (c : Cmd) : Bool := c.meta.hasVersion
-    /-- Checks whether `c` has information appended to the end of the help. -/
-    def hasFurtherInformation (c : Cmd) : Bool := c.meta.hasFurtherInformation
-    /-- Checks whether `c` supports a variable argument. -/
-    def hasVariableArg        (c : Cmd) : Bool := c.meta.hasVariableArg
-    /-- Checks whether `c` is being extended. -/
-    def hasExtension          (c : Cmd) : Bool := c.extension?.isSome
 
     /--
     Updates the designated fields in `c`.
@@ -638,7 +622,7 @@ section Configuration
       (subCmds    : Array Cmd          := c.subCmds)
       (extension? : Option Extension   := c.extension?)
       : Cmd :=
-      Cmd.init meta run subCmds extension?
+        Cmd.init meta run subCmds extension?
 
     /--
     Updates the designated fields in `c`.
@@ -657,21 +641,21 @@ section Configuration
     -/
     def update
       (c                   : Cmd)
-      (name                : String             := c.name)
-      (parentNames         : Array String       := c.parentNames)
-      (version?            : Option String      := c.version?)
-      (description         : String             := c.description)
-      (furtherInformation? : Option String      := c.furtherInformation?)
-      (flags               : Array Flag         := c.flags)
-      (positionalArgs      : Array Arg          := c.positionalArgs)
-      (variableArg?        : Option Arg         := c.variableArg?)
+      (name                : String             := c.meta.name)
+      (parentNames         : Array String       := c.meta.parentNames)
+      (version?            : Option String      := c.meta.version?)
+      (description         : String             := c.meta.description)
+      (furtherInformation? : Option String      := c.meta.furtherInformation?)
+      (flags               : Array Flag         := c.meta.flags)
+      (positionalArgs      : Array Arg          := c.meta.positionalArgs)
+      (variableArg?        : Option Arg         := c.meta.variableArg?)
       (run                 : Parsed → IO UInt32 := c.run)
       (subCmds             : Array Cmd          := c.subCmds)
       (extension?          : Option Extension   := c.extension?)
       : Cmd :=
-      Cmd.init
-        ⟨name, parentNames, version?, description, furtherInformation?, flags, positionalArgs, variableArg?⟩
-        run subCmds extension?
+        Cmd.init
+          ⟨name, parentNames, version?, description, furtherInformation?, flags, positionalArgs, variableArg?⟩
+          run subCmds extension?
 
     /--
     Creates a new command. Adds a `-h, --help` and a `--version` flag if `meta` designates a version.
@@ -687,25 +671,25 @@ section Configuration
       (subCmds    : Array Cmd        := #[])
       (extension? : Option Extension := none)
       : Cmd := Id.run do
-      let helpFlag := .paramless
-        (shortName?  := "h")
-        (longName    := "help")
-        (description := "Prints this message.")
-      let mut fixedFlags := #[helpFlag]
-      if meta.hasVersion then
-        let versionFlag := .paramless
-          (longName    := "version")
-          (description := "Prints the version.")
-        fixedFlags := fixedFlags.push versionFlag
-      let meta := { meta with flags := fixedFlags ++ meta.flags }
-      let c := .init meta run subCmds extension?
-      updateParentNames c
-    where
-      updateParentNames (c : Cmd) : Cmd :=
-        let subCmds := c.subCmds.map fun subCmd =>
-          let subCmd := updateParentNames subCmd
-          subCmd.update (parentNames := #[meta.name] ++ subCmd.parentNames)
-        c.update (subCmds := subCmds)
+        let helpFlag := .paramless
+          (shortName?  := "h")
+          (longName    := "help")
+          (description := "Prints this message.")
+        let mut fixedFlags := #[helpFlag]
+        if meta.hasVersion then
+          let versionFlag := .paramless
+            (longName    := "version")
+            (description := "Prints the version.")
+          fixedFlags := fixedFlags.push versionFlag
+        let meta := { meta with flags := fixedFlags ++ meta.flags }
+        let c := .init meta run subCmds extension?
+        updateParentNames c
+      where
+        updateParentNames (c : Cmd) : Cmd :=
+          let subCmds := c.subCmds.map fun subCmd =>
+            let subCmd := updateParentNames subCmd
+            subCmd.update (parentNames := #[meta.name] ++ subCmd.meta.parentNames)
+          c.update (subCmds := subCmds)
 
     /--
     Creates a new command. Adds a `-h, --help` and a `--version` flag if a version is designated.
@@ -733,16 +717,18 @@ section Configuration
       (subCmds             : Array Cmd        := #[])
       (extension?          : Option Extension := none)
       : Cmd :=
-      mk'
-        ⟨name, #[], version?, description, furtherInformation?, flags, positionalArgs, variableArg?⟩
-        run subCmds extension?
+        mk'
+          ⟨name, #[], version?, description, furtherInformation?, flags, positionalArgs, variableArg?⟩
+          run subCmds extension?
 
     /-- Finds the flag in `c` with the corresponding `longName`. -/
     def flag?          (c : Cmd) (longName : String) : Option Flag := c.meta.flag? longName
     /-- Finds the positional argument in `c` with the corresponding `name`. -/
     def positionalArg? (c : Cmd) (name     : String) : Option Arg  := c.meta.positionalArg? name
     /-- Finds the subcommand in `c` with the corresponding `name`. -/
-    def subCmd?        (c : Cmd) (name     : String) : Option Cmd  := c.subCmds.find? (·.name = name)
+    def subCmd?        (c : Cmd) (name     : String) : Option Cmd  := c.subCmds.find? (·.meta.name = name)
+    /-- Extension of the Cli library. -/
+    def extension! (c : Cmd) : Extension := c.extension?.get!
 
     /-- Finds the flag in `c` with the corresponding `longName`. -/
     def flag!          (c : Cmd) (longName : String) : Flag := c.meta.flag! longName
@@ -757,6 +743,8 @@ section Configuration
     def hasPositionalArg (c : Cmd) (name     : String) : Bool := c.meta.hasPositionalArg name
     /-- Checks whether `c` contains a subcommand with the corresponding `name`. -/
     def hasSubCmd        (c : Cmd) (name     : String) : Bool := c.subCmd? name |>.isSome
+    /-- Checks whether `c` is being extended. -/
+    def hasExtension (c : Cmd) : Bool := c.extension?.isSome
 
     /-- Finds the flag in `c` with the corresponding `shortName`. -/
     def flagByShortName? (c : Cmd) (name : String) : Option Flag := c.meta.flagByShortName? name
@@ -767,6 +755,28 @@ section Configuration
     /-- Checks whether `c` has a flag with the corresponding `shortName`. -/
     def hasFlagByShortName (c : Cmd) (name : String) : Bool := c.meta.hasFlagByShortName name
   end Cmd
+
+  namespace Parsed
+    namespace Cmd
+      /-- Extracts `meta` and the recursive subcommand structure from `c` to create a `Parsed.Cmd`. -/
+      partial def ofFullCmd (c : Cli.Cmd) : Cmd :=
+        let meta := c.meta
+        let subCmds := c.subCmds.map ofFullCmd
+        .init meta subCmds
+
+      /-- Embeds `c` into a `Cli.Cmd` that does nothing. -/
+      private partial def toFullCmd (c : Cmd) : Cli.Cmd :=
+        let meta       := c.meta
+        let run        := fun _ => pure 0
+        let subCmds    := c.subCmds.map toFullCmd
+        let extension? := { : Extension }
+        .init meta run subCmds extension?
+    end Cmd
+
+    /-- Embeds `p.cmd` into a `Cli.Cmd` that does nothing. -/
+    private def toCmd (p : Parsed) : Cli.Cmd :=
+      p.cmd.toFullCmd
+  end Parsed
 end Configuration
 
 section Macro
@@ -905,21 +915,21 @@ section Info
 
   namespace Cmd
     private def metaDataInfo (c : Cmd) : String :=
-      let version? : Option String := do return s!"[{← c.version?}]"
+      let version? : Option String := do return s!"[{← c.meta.version?}]"
       lines #[
-        line #[c.fullName, version?.optStr] |>.wrapWordsAt! maxWidth,
-        c.description.wrapWordsAt! maxWidth
+        line #[c.meta.fullName, version?.optStr] |>.wrapWordsAt! maxWidth,
+        c.meta.description.wrapWordsAt! maxWidth
       ]
 
     private def usageInfo (c : Cmd) : String :=
       let subCmdTitle? : Option String := if ¬c.subCmds.isEmpty then "[SUBCOMMAND]" else none
-      let posArgNames  : String        := line <| c.positionalArgs.map (s!"<{·.name}>")
-      let varArgName?  : Option String := do return s!"<{(← c.variableArg?).name}>..."
-      let info := line #[c.fullName, subCmdTitle?.optStr, "[FLAGS]", posArgNames, varArgName?.optStr]
+      let posArgNames  : String        := line <| c.meta.positionalArgs.map (s!"<{·.name}>")
+      let varArgName?  : Option String := do return s!"<{(← c.meta.variableArg?).name}>..."
+      let info := line #[c.meta.fullName, subCmdTitle?.optStr, "[FLAGS]", posArgNames, varArgName?.optStr]
       renderSection "USAGE" info
 
     private def flagInfo (c : Cmd) : String :=
-      let columns : Array (String × String) := c.flags.map fun flag =>
+      let columns : Array (String × String) := c.meta.flags.map fun flag =>
         let shortName?    : Option String := do return s!"-{← flag.shortName?}"
         let names         : String        := ", ".optJoin #[shortName?.optStr, s!"--{flag.longName}"]
         let type?         : Option String := if ¬ flag.isParamless then s!": {flag.type.name}" else none
@@ -928,15 +938,15 @@ section Info
 
     private def positionalArgInfo (c : Cmd) : String :=
       let args :=
-        if let some variableArg := c.variableArg? then
-          c.positionalArgs ++ #[variableArg]
+        if let some variableArg := c.meta.variableArg? then
+          c.meta.positionalArgs ++ #[variableArg]
         else
-          c.positionalArgs
+          c.meta.positionalArgs
       args.map (fun arg => (line #[arg.name, s!": {arg.type.name}"], arg.description))
         |> renderTable "ARGS"
 
     private def subCommandInfo (c : Cmd) : String :=
-      c.subCmds.map (fun subCmd => (subCmd.name, subCmd.description))
+      c.subCmds.map (fun subCmd => (subCmd.meta.name, subCmd.meta.description))
         |> renderTable "SUBCOMMANDS"
 
     /-- Renders the help for `c`. -/
@@ -945,16 +955,16 @@ section Info
         c.metaDataInfo,
         "\n" ++ c.usageInfo,
         "\n" ++ c.flagInfo,
-        (if ¬c.positionalArgs.isEmpty ∨ c.hasVariableArg then "\n" else "") ++ c.positionalArgInfo,
+        (if ¬c.meta.positionalArgs.isEmpty ∨ c.meta.hasVariableArg then "\n" else "") ++ c.positionalArgInfo,
         (if ¬c.subCmds.isEmpty then "\n" else "") ++ c.subCommandInfo,
-        (if c.hasFurtherInformation then "\n" else "") ++ c.furtherInformation?.optStr
+        (if c.meta.hasFurtherInformation then "\n" else "") ++ c.meta.furtherInformation?.optStr
       ]
 
     /-- Renders an error for `c` with the designated message `msg`. -/
     def error (c : Cmd) (msg : String) : String :=
       lines #[
         msg.wrapWordsAt! maxWidth,
-        s!"Run `{c.fullName} -h` for further information.".wrapWordsAt! maxWidth
+        s!"Run `{c.meta.fullName} -h` for further information.".wrapWordsAt! maxWidth
       ]
 
     /-- Prints the help for `c`. -/
@@ -962,8 +972,23 @@ section Info
     /-- Prints an error for `c` with the designated message `msg`. -/
     def printError    (c : Cmd) (msg : String) : IO Unit := IO.eprintln <| c.error msg
     /-- Prints the version of `c`. Panics if `c` has no version. -/
-    def printVersion! (c : Cmd)                : IO Unit := IO.println c.version!
+    def printVersion! (c : Cmd)                : IO Unit := IO.println c.meta.version!
   end Cmd
+
+  namespace Parsed
+      /-- Renders the help for `p.cmd`. -/
+    def help (p : Parsed) : String := p.toCmd.help
+
+    /-- Renders an error for `p.cmd` with the designated message `msg`. -/
+    def error (p : Parsed) (msg : String) : String := p.toCmd.error msg
+
+    /-- Prints the help for `p.cmd`. -/
+    def printHelp     (p : Parsed)                : IO Unit := p.toCmd.printHelp
+    /-- Prints an error for `p.cmd` with the designated message `msg`. -/
+    def printError    (p : Parsed) (msg : String) : IO Unit := p.toCmd.printError msg
+    /-- Prints the version of `p.cmd`. Panics if `p.cmd` has no version. -/
+    def printVersion! (p : Parsed)                : IO Unit := p.toCmd.printVersion!
+  end Parsed
 end Info
 
 section Parsing
@@ -980,7 +1005,7 @@ section Parsing
       s!"{pre}{f.name}"
 
   namespace ParseError
-    /-- Kind of error that occured during parsing. -/
+    /-- Represents the kind of error that occured during parsing. -/
     inductive Kind
     | unknownFlag
       (inputFlag : InputFlag)
@@ -1150,18 +1175,18 @@ section Parsing
         if flagContent = "" then
           return some #[]
         let parsedFlagsCandidates : Array (Array (String × Parsed.Flag)) ←
-          (← cmd).flags.filter (·.isParamless)
-          |>.filter            (·.hasShortName)
-          |>.filter            (·.shortName!.isPrefixOf flagContent)
-          |>.filter            (¬ matched.contains ·.shortName!)
-          |>.qsort             (·.shortName!.length > ·.shortName!.length)
-          |>.filterMapM fun flag => do
-            let inputFlagName := flagContent.take flag.shortName!.length
-            let restContent   := flagContent.drop flag.shortName!.length
-            let newMatched    := matched.insert flag.shortName!
-            let some tail ← loop restContent newMatched
-              | return none
-            return some <| #[(inputFlagName, ⟨flag, ""⟩)] ++ tail
+          (← cmd).meta.flags.filter (·.isParamless)
+            |>.filter               (·.hasShortName)
+            |>.filter               (·.shortName!.isPrefixOf flagContent)
+            |>.filter               (¬ matched.contains ·.shortName!)
+            |>.qsort                (·.shortName!.length > ·.shortName!.length)
+            |>.filterMapM fun flag => do
+              let inputFlagName := flagContent.take flag.shortName!.length
+              let restContent   := flagContent.drop flag.shortName!.length
+              let newMatched    := matched.insert flag.shortName!
+              let some tail ← loop restContent newMatched
+                | return none
+              return some <| #[(inputFlagName, ⟨flag, ""⟩)] ++ tail
         return parsedFlagsCandidates.get? 0
 
     private def readEqFlag? : ParseM (Option Parsed.Flag) := do
@@ -1201,12 +1226,12 @@ section Parsing
       let some (flagContent, true) ← readFlagContent?
         | return none
       let some flag :=
-          (← cmd).flags.filter (¬ ·.isParamless)
-          |>.filter            (·.hasShortName)
-          |>.filter            (·.shortName!.isPrefixOf flagContent)
-          |>.filter            (·.shortName!.length < flagContent.length)
-          |>.qsort             (·.shortName!.length > ·.shortName!.length)
-          |>.get? 0
+          (← cmd).meta.flags.filter (¬ ·.isParamless)
+            |>.filter               (·.hasShortName)
+            |>.filter               (·.shortName!.isPrefixOf flagContent)
+            |>.filter               (·.shortName!.length < flagContent.length)
+            |>.qsort                (·.shortName!.length > ·.shortName!.length)
+            |>.get? 0
         | return none
       let flagName  := flag.shortName!
       let flagValue := flagContent.drop flagName.length
@@ -1246,7 +1271,7 @@ section Parsing
     private def parsePositionalArg : ParseM Bool := do
       let some positionalArgValue ← peek?
         | return false
-      let some positionalArg := (← cmd).positionalArgs.get? (← parsedPositionalArgs).size
+      let some positionalArg := (← cmd).meta.positionalArgs.get? (← parsedPositionalArgs).size
         | return false
       if ¬ positionalArg.type.isValid positionalArgValue then
         throw <| ← parseError <| invalidPositionalArgType positionalArg positionalArgValue
@@ -1257,7 +1282,7 @@ section Parsing
     private def parseVariableArg : ParseM Bool := do
       let some variableArgValue ← peek?
         | return false
-      let some variableArg := (← cmd).variableArg?
+      let some variableArg := (← cmd).meta.variableArg?
         | throw <| ← parseError <| redundantPositionalArg variableArgValue
       if ¬ variableArg.type.isValid variableArgValue then
         throw <| ← parseError <| invalidVariableArgType variableArg variableArgValue
@@ -1288,15 +1313,15 @@ section Parsing
         parseSubCmds
         parseArgs
         let parsed : Parsed := {
-          cmd            := (← cmd).meta
+          cmd            := .ofFullCmd (← cmd)
           flags          := ← parsedFlags
           positionalArgs := ← parsedPositionalArgs
           variableArgs   := ← parsedVariableArgs
         }
-        if parsed.hasFlag "help" ∨ parsed.cmd.hasVersion ∧ parsed.hasFlag "version" then
+        if parsed.hasFlag "help" ∨ parsed.cmd.meta.hasVersion ∧ parsed.hasFlag "version" then
           return (← cmd, parsed)
-        if (← parsedPositionalArgs).size < (← cmd).positionalArgs.size then
-          throw <| ← parseError <| missingPositionalArg <| (← cmd).positionalArgs.get! (← parsedPositionalArgs).size
+        if (← parsedPositionalArgs).size < (← cmd).meta.positionalArgs.size then
+          throw <| ← parseError <| missingPositionalArg <| (← cmd).meta.positionalArgs.get! (← parsedPositionalArgs).size
         return (← cmd, parsed)
   end ParseM
 
@@ -1354,7 +1379,7 @@ section IO
         if parsed.hasFlag "help" then
           cmd.printHelp
           return 0
-        if cmd.hasVersion ∧ parsed.hasFlag "version" then
+        if cmd.meta.hasVersion ∧ parsed.hasFlag "version" then
           cmd.printVersion!
           return 0
         cmd.run parsed
