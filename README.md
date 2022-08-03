@@ -213,9 +213,10 @@ def validate (c : Cmd) (args : List String) : IO UInt32 := do
     return 1
 ```
 ```Lean
+/-- Represents parsed user input data. -/
 structure Parsed where
-  /-- Non-recursive meta-data of the associated command. -/
-  cmd            : Cmd.Meta
+  /-- Recursive meta-data of the associated command. -/
+  cmd            : Parsed.Cmd
   /-- Parsed flags. -/
   flags          : Array Parsed.Flag
   /-- Parsed positional arguments. -/

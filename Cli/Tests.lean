@@ -24,6 +24,10 @@ section Utils
       return toString parsed
     | Except.error (_, error) =>
       return error
+
+  def Cmd.extendedHelp (c : Cmd) : String :=
+    c.extension!.extend (.ofFullCmd c) |>.toFullCmd! c |>.help
+
 end Utils
 
 def doNothing (_ : Parsed) : IO UInt32 := return 0
@@ -45,6 +49,10 @@ def testSubCmd1 : Cmd := `[Cli|
 
   SUBCOMMANDS:
     testSubSubCmd
+
+  EXTENSIONS:
+    helpSubCommand;
+    versionSubCommand!
 ]
 
 def testSubCmd2 : Cmd := `[Cli|
@@ -134,8 +142,17 @@ section ValidInputs
     (testCmd.processParsed "testsubcommand1 testsubsubcommand")
     == "cmd: testcommand testsubcommand1 testsubsubcommand; flags: #[]; positionalArgs: #[]; variableArgs: #[]"
 
-  #eval (testCmd.processParsed "testsubcommand2 --run asdf,geh")
+  #eval 
+    (testCmd.processParsed "testsubcommand2 --run asdf,geh")
     == "cmd: testcommand testsubcommand2; flags: #[--run]; positionalArgs: #[<ominous-input=asdf,geh>]; variableArgs: #[]"
+
+  #eval 
+    (testCmd.processParsed "testsubcommand1 help")
+    == "cmd: testcommand testsubcommand1 help; flags: #[]; positionalArgs: #[]; variableArgs: #[]"
+
+  #eval 
+    (testCmd.processParsed "testsubcommand1 version")
+    == "cmd: testcommand testsubcommand1 version; flags: #[]; positionalArgs: #[]; variableArgs: #[]"
 end ValidInputs
 
 section InvalidInputs
@@ -343,9 +360,32 @@ section Info
   DESCRIPTION:
       this could be really long, but i'm too lazy to type it out.
   -/
-  #eval
-    (testCmd.update' (meta := testCmd.extension!.extendMeta testCmd.meta)).help
+  #eval testCmd.extendedHelp
     == "testcommand [0.0.0]\nmhuisi\nsome short description that happens to be much longer than necessary and hence\nneeds to be wrapped to fit into an 80 character width limit\n\nUSAGE:\n    testcommand [SUBCOMMAND] [FLAGS] <input1> <input2> <outputs>...\n\nFLAGS:\n    -h, --help                 Prints this message.\n    --version                  Prints the version.\n    --verbose                  a very verbose flag description that also needs\n                               to be wrapped to fit into an 80 character width\n                               limit\n    -x, --unknown1             this flag has a short name\n    -xn, --unknown2            short names do not need to be prefix-free\n    -ny, --unknown3            -xny will parse as -x -ny and not fail to parse\n                               as -xn -y\n    -t, --typed1 : String      [Required] flags can have typed parameters\n    -ty, --typed2              -ty parsed as --typed2, not -t=y\n    -p-n, --level-param : Nat  hyphens work, too [Default: `0`]\n\nARGS:\n    input1 : String     another very verbose description that also needs to be\n                        wrapped to fit into an 80 character width limit\n    input2 : Array Nat  arrays!\n    outputs : Nat       varargs!\n\nSUBCOMMANDS:\n    testsubcommand1  a properly short description\n    testsubcommand2  does not do anything interesting\n\nDESCRIPTION:\n    this could be really long, but i'm too lazy to type it out."
+
+  /-
+  testsubcommand1 [0.0.1]
+  a properly short description
+
+  USAGE:
+      testsubcommand1 [SUBCOMMAND] [FLAGS] <city-location>
+
+  FLAGS:
+      -h, --help          Prints this message.
+      --version           Prints the version.
+      --launch-the-nukes  please avoid passing this flag at all costs.
+                          if you like, you can have newlines in descriptions.
+
+  ARGS:
+      city-location : String  can also use hyphens
+
+  SUBCOMMANDS:
+      testsubsubcommand  does this even do anything?
+      version            Prints the version.
+      help               Prints this message.
+  -/
+  #eval testSubCmd1.extendedHelp
+    == "testsubcommand1 [0.0.1]\na properly short description\n\nUSAGE:\n    testsubcommand1 [SUBCOMMAND] [FLAGS] <city-location>\n\nFLAGS:\n    -h, --help          Prints this message.\n    --version           Prints the version.\n    --launch-the-nukes  please avoid passing this flag at all costs.\n                        if you like, you can have newlines in descriptions.\n\nARGS:\n    city-location : String  can also use hyphens\n\nSUBCOMMANDS:\n    testsubsubcommand  does this even do anything?\n    version            Prints the version.\n    help               Prints this message."
 end Info
 
 end Cli
