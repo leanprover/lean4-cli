@@ -791,7 +791,7 @@ section Macro
       if flag[1].isNone then
         (quote (none : Option String), expandIdentLiterally flag[0])
       else
-        (expandIdentLiterally flag[0], expandIdentLiterally flag[1][1])
+        (← `(some $(expandIdentLiterally flag[0])), expandIdentLiterally flag[1][1])
     let type        := if flag[2].isNone then ← `(Unit) else flag[2][1]
     let description := flag[4]
     `(Flag.mk $shortName $longName $description $type)
