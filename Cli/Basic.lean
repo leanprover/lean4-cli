@@ -1039,7 +1039,7 @@ section Macro
     let mut shortName := quote (none : Option String)
     let mut longName := flagName1
     if let some flagName2 := flagName2 then
-      shortName := expandIdentLiterally flagName1
+      shortName ← `(some $(expandIdentLiterally flagName1))
       longName := flagName2
     let unitType : Term ← `(Unit)
     let type :=
