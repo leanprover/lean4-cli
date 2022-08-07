@@ -26,7 +26,7 @@ section Utils
       return error
 
   def Cmd.extendedHelp (c : Cmd) : String :=
-    c.extension!.extend (.ofFullCmd c) |>.toFullCmd! c |>.help
+    c.extension!.extend (.ofFullCmd c) |>.toFullCmd c |>.help
 
 end Utils
 

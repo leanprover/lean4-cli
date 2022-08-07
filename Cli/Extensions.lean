@@ -76,7 +76,7 @@ section Extensions
 
   /-- Adds a `version` subcommand. -/
   def versionSubCommand! : Extension := {
-    extend   := fun cmd =>
+    extend := fun cmd =>
       if cmd.version?.isNone then
         panic! "Cli.versionSubCommand!: Cannot add `version` subcommand to command without a version."
       else

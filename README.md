@@ -5,7 +5,7 @@ See [the documentation of Lake](https://github.com/leanprover/lake).
 Use one of the following for the `<tag>` in the dependency source `Source.git "https://github.com/mhuisi/lean4-cli.git" "<tag>"`:
 - `main` if you want to stay in sync with Lean 4 milestone releases. The `main` branch will contain a working version of lean4-cli for the most recent Lean 4 milestone.
 - `nightly` if you want to stay in sync with Lean 4 nightly releases. The `nightly` branch will contain a working version of lean4-cli for the most recent Lean 4 nightly build.
-- One of the specific release tags if you want to pin a specific version, e.g. `v1.0.0-lv4.0.0-m4` for the current release for the 4th Lean 4 milestone release or `v1.0.0-lnightly-2022-05-21` for the current release for the Lean 4 nightly version from 2022-05-21. Only nightlies where lean4-cli broke will receive a release tag. Please avoid using specific commit hashes since these are not guaranteed to remain static.
+- One of the specific release tags if you want to pin a specific version, e.g. `v1.0.0-lv4.0.0-m4` for v1.0.0 for the 4th Lean 4 milestone release or `v1.0.0-lnightly-2022-05-21` for v1.0.0 for the Lean 4 nightly version from 2022-05-21. Only nightlies where lean4-cli broke will receive a release tag.
 
 ### Configuration
 Commands are configured with a lightweight DSL. The following declarations define a command `exampleCmd` with two subcommands `installCmd` and `testCmd`. `runExampleCmd` denotes a handler that is called when the command is run and is described further down below in the **Command Handlers** subsection.
@@ -202,10 +202,10 @@ def validate (c : Cmd) (args : List String) : IO UInt32 := do
   match result with
   | .ok (cmd, parsed) =>
     if parsed.hasFlag "help" then
-      cmd.printHelp
+      parsed.printHelp
       return 0
-    if cmd.hasVersion ∧ parsed.hasFlag "version" then
-      cmd.printVersion!
+    if parsed.cmd.meta.hasVersion ∧ parsed.hasFlag "version" then
+      parsed.printVersion!
       return 0
     cmd.run parsed
   | .error (cmd, err) =>
@@ -213,18 +213,27 @@ def validate (c : Cmd) (args : List String) : IO UInt32 := do
     return 1
 ```
 ```Lean
-/-- Represents parsed user input data. -/
-structure Parsed where
-  /-- Recursive meta-data of the associated command. -/
-  cmd            : Parsed.Cmd
-  /-- Parsed flags. -/
-  flags          : Array Parsed.Flag
-  /-- Parsed positional arguments. -/
-  positionalArgs : Array Parsed.Arg
-  /-- Parsed variable arguments. -/
-  variableArgs   : Array Parsed.Arg
+  /-- Represents parsed user input data. -/
+  structure Parsed where
+    /-- Recursive meta-data of the associated command. -/
+    cmd            : Parsed.Cmd
+    /-- Parent of the associated command. -/
+    parent?        : Option Parsed.Cmd
+    /-- Parsed flags. -/
+    flags          : Array Parsed.Flag
+    /-- Parsed positional arguments. -/
+    positionalArgs : Array Parsed.Arg
+    /-- Parsed variable arguments. -/
+    variableArgs   : Array Parsed.Arg
+    deriving Inhabited
 
 namespace Parsed
+  /-- Parent of the associated command. -/
+  def parent! (p : Parsed) : Parsed.Cmd
+
+  /-- Checks whether the associated command has a parent, i.e. whether it is not the root command. -/
+  def hasParent (p : Parsed) : Bool
+
   /-- Finds the parsed flag in `p` with the corresponding `longName`. -/
   def flag?          (p : Parsed) (longName : String) : Option Flag
   /-- Finds the parsed positional argument in `p` with the corresponding `name`. -/

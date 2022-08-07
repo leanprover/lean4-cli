@@ -394,8 +394,7 @@ section Configuration
     name                : String
     /--
     Names of the commands of which this command is a subcommand.
-    Corresponds to the path from the root to this command. Typically
-    initialized by `Cmd.mk`, `Cmd.mk'` or `Cmd.updateParentNames`.
+    Corresponds to the path from the root to this command.
     -/
     parentNames         : Array String
     /-- Version of the command that is displayed in the help and when the version is queried. -/
@@ -507,6 +506,8 @@ section Configuration
   structure Parsed where
     /-- Recursive meta-data of the associated command. -/
     cmd            : Parsed.Cmd
+    /-- Parent of the associated command. -/
+    parent?        : Option Parsed.Cmd
     /-- Parsed flags. -/
     flags          : Array Parsed.Flag
     /-- Parsed positional arguments. -/
@@ -516,6 +517,12 @@ section Configuration
     deriving Inhabited
 
   namespace Parsed
+    /-- Parent of the associated command. -/
+    def parent! (p : Parsed) : Parsed.Cmd := p.parent?.get!
+
+    /-- Checks whether the associated command has a parent, i.e. whether it is not the root command. -/
+    def hasParent (p : Parsed) : Bool := p.parent?.isSome
+
     /-- Finds the parsed flag in `p` with the corresponding `longName`. -/
     def flag?          (p : Parsed) (longName : String) : Option Flag := p.flags.find? (·.flag.longName = longName)
     /-- Finds the parsed positional argument in `p` with the corresponding `name`. -/
@@ -562,32 +569,24 @@ section Configuration
   -/
   inductive ExtendableCmd
     | init
-      (meta               : Meta)
-      (run                : Parsed → IO UInt32)
-      (subCmds            : Array ExtendableCmd)
-      (createdByExtension : Bool)
+      (meta              : Meta)
+      (run               : Parsed → IO UInt32)
+      (subCmds           : Array ExtendableCmd)
+      (originalFullName? : Option String)
     deriving Inhabited
 
   namespace ExtendableCmd
-    /-- 
-    Non-recursive meta-data. 
-    `meta.parentNames` should not be mutated by extensions since
-    it is used to identify commands after the extensions have been applied.
-    If `meta.name` is changed, this command will lose its extension.
-    The root command of an `extend` call should never change its place or name.
-    -/
-    def         meta               : ExtendableCmd → Cmd.Meta             | init v _ _ _ => v
+    /-- Non-recursive meta-data. -/
+    def         meta              : ExtendableCmd → Cmd.Meta             | init v _ _ _ => v
     /-- Handler to run when the command is called and flags/arguments have been successfully processed. -/
-    def         run                : ExtendableCmd → (Parsed → IO UInt32) | init _ v _ _ => v
+    def         run               : ExtendableCmd → (Parsed → IO UInt32) | init _ v _ _ => v
     /-- Subcommands. May be mutated by extensions. -/
-    def         subCmds            : ExtendableCmd → Array ExtendableCmd  | init _ _ v _ => v
-    private def createdByExtension : ExtendableCmd → Bool                 | init _ _ _ v => v
+    def         subCmds           : ExtendableCmd → Array ExtendableCmd  | init _ _ v _ => v
+    private def originalFullName? : ExtendableCmd → Option String        | init _ _ _ v => v
 
     /--
     Updates the designated fields in `c`.
-    - `meta`:    Non-recursive meta-data. `meta.parentNames` should not be mutated by extensions since
-                 it is used to identify commands after the extensions have been applied. 
-                 If `meta.name` is changed, this command will lose its extension.
+    - `meta`:    Non-recursive meta-data.
     - `run`:     Handler to run when the command is called and flags/arguments have been successfully processed.
     - `subCmds`: Subcommands.
     -/
@@ -597,11 +596,11 @@ section Configuration
       (run     : Parsed → IO UInt32  := c.run)
       (subCmds : Array ExtendableCmd := c.subCmds)
       : ExtendableCmd :=
-        .init meta run subCmds c.createdByExtension
+        .init meta run subCmds c.originalFullName?
 
     /--
     Updates the designated fields in `c`.
-    - `name`:                Name that is displayed in the help. If the name is changed, this command will lose its extension.
+    - `name`:                Name that is displayed in the help.
     - `version?`:            Version that is displayed in the help and when the version is queried.
     - `description`:         Description that is displayed in the help.
     - `furtherInformation?`: Information appended to the end of the help. Useful for command extensions.
@@ -625,7 +624,7 @@ section Configuration
       : ExtendableCmd :=
         .init
           ⟨name, c.meta.parentNames, version?, description, furtherInformation?, flags, positionalArgs, variableArg?⟩
-          run subCmds c.createdByExtension
+          run subCmds c.originalFullName?
 
     /--
     Creates a new `ExtendableCmd`. The resulting `ExtendableCmd` will not have an extension.
@@ -638,7 +637,7 @@ section Configuration
       (run     : Parsed → IO UInt32)
       (subCmds : Array ExtendableCmd := #[])
       : ExtendableCmd :=
-        .init meta run subCmds (createdByExtension := true)
+        .init meta run subCmds none
 
     /--
     Creates a new `ExtendableCmd`. The resulting `ExtendableCmd` will not have an extension.
@@ -751,31 +750,31 @@ section Configuration
     def flag?          (c : ExtendableCmd) (longName : String) : Option Flag          := c.meta.flag? longName
     /-- Finds the positional argument in `c` with the corresponding `name`. -/
     def positionalArg? (c : ExtendableCmd) (name     : String) : Option Arg           := c.meta.positionalArg? name
-    /-- Finds the subcommand in `c` with the corresponding `name`. -/
-    def subCmd?        (c : ExtendableCmd) (name     : String) : Option ExtendableCmd := c.subCmds.find? (·.meta.name = name)
 
     /-- Finds the flag in `c` with the corresponding `longName`. -/
     def flag!          (c : ExtendableCmd) (longName : String) : Flag          := c.meta.flag! longName
     /-- Finds the positional argument in `c` with the corresponding `name`. -/
     def positionalArg! (c : ExtendableCmd) (name     : String) : Arg           := c.meta.positionalArg! name
-    /-- Finds the subcommand in `c` with the corresponding `name`. -/
-    def subCmd!        (c : ExtendableCmd) (name     : String) : ExtendableCmd := c.subCmd? name |>.get!
 
     /-- Checks whether `c` contains a flag with the corresponding `longName`. -/
     def hasFlag          (c : ExtendableCmd) (longName : String) : Bool := c.meta.hasFlag longName
     /-- Checks whether `c` contains a positional argument with the corresponding `name`. -/
     def hasPositionalArg (c : ExtendableCmd) (name     : String) : Bool := c.meta.hasPositionalArg name
-    /-- Checks whether `c` contains a subcommand with the corresponding `name`. -/
-    def hasSubCmd        (c : ExtendableCmd) (name     : String) : Bool := c.subCmd? name |>.isSome
 
     /-- Finds the flag in `c` with the corresponding `shortName`. -/
-    def flagByShortName? (c : ExtendableCmd) (name : String) : Option Flag := c.meta.flagByShortName? name
+    def flagByShortName? (c : ExtendableCmd) (name : String) : Option Flag          := c.meta.flagByShortName? name
+    /-- Finds the subcommand in `c` with the corresponding `name`. -/
+    def subCmd?          (c : ExtendableCmd) (name : String) : Option ExtendableCmd := c.subCmds.find? (·.meta.name = name)
 
-    /-- Finds the flag in `m` with the corresponding `shortName`. -/
-    def flagByShortName! (c : ExtendableCmd) (name : String) : Flag := c.meta.flagByShortName! name
+    /-- Finds the flag in `c` with the corresponding `shortName`. -/
+    def flagByShortName! (c : ExtendableCmd) (name : String) : Flag          := c.meta.flagByShortName! name
+    /-- Finds the subcommand in `c` with the corresponding `name`. -/
+    def subCmd!          (c : ExtendableCmd) (name : String) : ExtendableCmd := c.subCmd? name |>.get!
 
-    /-- Checks whether `m` has a flag with the corresponding `shortName`. -/
+    /-- Checks whether `c` has a flag with the corresponding `shortName`. -/
     def hasFlagByShortName (c : ExtendableCmd) (name : String) : Bool := c.meta.hasFlagByShortName name
+    /-- Checks whether `c` contains a subcommand with the corresponding `name`. -/
+    def hasSubCmd          (c : ExtendableCmd) (name : String) : Bool := c.subCmd? name |>.isSome
   end ExtendableCmd
 
   /--
@@ -791,14 +790,14 @@ section Configuration
     priority : Nat := 1024
     /-- 
     Extends a command to adjust the displayed help.
-    The recursive subcommand structure may be mutated, though all commands
-    that have their names changed will lose their extension.
-    The root command of an `extend` call should never change its place or name.
+    The recursive subcommand structure may be mutated.
     -/
     extend : ExtendableCmd → ExtendableCmd := id
     /-- 
     Processes and validates the output of the parser for the given `ExtendableCmd`. 
     Takes the `ExtendableCmd` that results from all extensions being applied.
+    If postprocessing mutates the subcommand structure in `Parsed.cmd`, care must be taken to update
+    `Parsed.parent?` accordingly as well.
     -/
     postprocess : ExtendableCmd → Parsed → Except String Parsed := fun _ => pure
     deriving Inhabited
@@ -920,12 +919,10 @@ section Configuration
     namespace Cmd
       /-- Extracts `meta` and the recursive subcommand structure from `c` to create a `Parsed.Cmd`. -/
       partial def ofFullCmd (c : Cli.Cmd) : Cmd :=
-        let meta := c.meta
-        let subCmds := c.subCmds.map ofFullCmd
-        .init meta subCmds
+        .init c.meta (c.subCmds.map ofFullCmd)
 
       /-- Embeds `c` into a `Cli.Cmd` that does nothing. -/
-      private partial def toFullCmd (c : Cmd) : Cli.Cmd :=
+      partial def toFullCmd (c : Cmd) : Cli.Cmd :=
         let meta       := c.meta
         let run        := fun _ => pure 0
         let subCmds    := c.subCmds.map toFullCmd
@@ -934,34 +931,23 @@ section Configuration
     end Cmd
 
     /-- Embeds `p.cmd` into a `Cli.Cmd` that does nothing. -/
-    private def toCmd (p : Parsed) : Cli.Cmd :=
+    def toCmd (p : Parsed) : Cli.Cmd :=
       p.cmd.toFullCmd
   end Parsed
 
   namespace ExtendableCmd
     /-- Creates a view of `c` that can be extended by extensions. -/
     partial def ofFullCmd (c : Cli.Cmd) : ExtendableCmd :=
-      .init c.meta c.run (c.subCmds.map ofFullCmd) (createdByExtension := false)
+      .init c.meta c.run (c.subCmds.map ofFullCmd) c.meta.fullName
 
-    /--
-    Converts `c` back into a `Cli.Cmd`, using the extensions denoted in `original`.
-    If the name of a command in `c` was changed, it will lose its extension.
-    Panics if an extension changed the position or name of the root command, in which case
-    the parsed arguments & flags will not match the command yielded by the extension anymore.
-    -/
-    partial def toFullCmd! (c : ExtendableCmd) (original : Cli.Cmd) : Cli.Cmd := Id.run do
-      if c.fullName ≠ original.meta.fullName then
-        panic! "Cli.ExtendableCmd.toFullCmd: Root command position changed"
+    /-- Converts `c` back into a `Cli.Cmd`, using the extensions denoted in `original`. -/
+    partial def toFullCmd (c : ExtendableCmd) (original : Cli.Cmd) : Cli.Cmd := Id.run do
       let extensions := collectExtensions original
       let mut extensionIndex := Std.mkRBMap String (Option Extension) compare
       for ⟨fullName, extension?⟩ in extensions do
         extensionIndex := extensionIndex.insert fullName extension?
       let rec loop (c : ExtendableCmd) : Cli.Cmd :=
-        let extension? :=
-          if c.createdByExtension then
-            none
-          else
-            extensionIndex.find? c.fullName |>.join
+        let extension? := do extensionIndex.find? (← c.originalFullName?) |>.join
         let subCmds := c.subCmds.map loop
         .init c.meta c.run subCmds extension?
       loop c |>.updateParentNames |> prependOriginalParentNames
@@ -977,9 +963,7 @@ section Configuration
         let subCmds := currentCmd.subCmds.map prependOriginalParentNames
         currentCmd.update (meta := meta) (subCmds := subCmds)
 
-    /--
-    Converts `c` back into `Cli.Cmd` while retaining none of the extensions.
-    -/
+    /-- Converts `c` back into `Cli.Cmd` while retaining none of the extensions. -/
     partial def toFullCmdWithoutExtensions (c : ExtendableCmd) : Cli.Cmd :=
       Cmd.init c.meta c.run (c.subCmds.map toFullCmdWithoutExtensions) none
 
@@ -1288,6 +1272,7 @@ section Parsing
   private structure ParseState where
     idx                  : Nat
     cmd                  : Cmd
+    parent?              : Option Cmd
     parsedFlags          : Array Parsed.Flag
     parsedPositionalArgs : Array Parsed.Arg
     parsedVariableArgs   : Array Parsed.Arg
@@ -1300,6 +1285,7 @@ section Parsing
     private def args                 : ParseM (Array String)      := read
     private def idx                  : ParseM Nat                 := do return (← get).idx
     private def cmd                  : ParseM Cmd                 := do return (← get).cmd
+    private def parent?              : ParseM (Option Cmd)        := do return (← get).parent?
     private def parsedFlags          : ParseM (Array Parsed.Flag) := do return (← get).parsedFlags
     private def parsedPositionalArgs : ParseM (Array Parsed.Arg)  := do return (← get).parsedPositionalArgs
     private def parsedVariableArgs   : ParseM (Array Parsed.Arg)  := do return (← get).parsedVariableArgs
@@ -1315,6 +1301,8 @@ section Parsing
       set { ← get with idx := idx }
     private def setCmd (c : Cmd) : ParseM Unit := do
       set { ← get with cmd := c }
+    private def setParent (c? : Option Cmd) : ParseM Unit := do
+      set { ← get with parent? := c? }
     private def pushParsedFlag (parsedFlag : Parsed.Flag) : ParseM Unit := do
       set { ← get with parsedFlags := (← parsedFlags).push parsedFlag }
     private def pushParsedPositionalArg (parsedPositionalArg : Parsed.Arg) : ParseM Unit := do
@@ -1327,6 +1315,7 @@ section Parsing
     private def parseError (kind : ParseError.Kind) : ParseM ParseError := do return ⟨← cmd, kind⟩
 
     private partial def parseSubCmds : ParseM Unit := do
+      let mut parent? := none
       let mut lastSubCmd ← cmd
       repeat
         let some arg ← peek?
@@ -1334,8 +1323,10 @@ section Parsing
         let some subCmd := lastSubCmd.subCmd? arg
           | break
         skip
+        parent? := lastSubCmd
         lastSubCmd := subCmd
       setCmd lastSubCmd
+      setParent parent?
 
     private def parseEndOfFlags : ParseM Bool := do
       let some arg ← peek?
@@ -1511,6 +1502,7 @@ section Parsing
       parse' args.toArray |>.run' {
         idx                  := 0
         cmd                  := c
+        parent?              := none
         parsedFlags          := #[]
         parsedPositionalArgs := #[]
         parsedVariableArgs   := #[]
@@ -1521,6 +1513,7 @@ section Parsing
         parseArgs
         let parsed : Parsed := {
           cmd            := .ofFullCmd (← cmd)
+          parent?        := (← parent?).map .ofFullCmd
           flags          := ← parsedFlags
           positionalArgs := ← parsedPositionalArgs
           variableArgs   := ← parsedVariableArgs
@@ -1547,7 +1540,7 @@ section Parsing
       let c := c.update (subCmds := subCmds)
       let some extension := c.extension? 
         | return c
-      extension.extend (.ofFullCmd c) |>.toFullCmd! c
+      extension.extend (.ofFullCmd c) |>.toFullCmd c
 
     /--
     Processes `args` by applying all extensions in `c`, `Cmd.parse?`ing the input according to `c` 
@@ -1589,10 +1582,10 @@ section IO
       match result with
       | .ok (cmd, parsed) =>
         if parsed.hasFlag "help" then
-          cmd.printHelp
+          parsed.printHelp
           return 0
-        if cmd.meta.hasVersion ∧ parsed.hasFlag "version" then
-          cmd.printVersion!
+        if parsed.cmd.meta.hasVersion ∧ parsed.hasFlag "version" then
+          parsed.printVersion!
           return 0
         cmd.run parsed
       | .error (cmd, err) =>
