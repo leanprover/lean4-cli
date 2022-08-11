@@ -2,9 +2,6 @@ import Cli
 
 open Cli
 
-def doNothing (p : Parsed) : IO UInt32 :=
-  return 0
-
 def runExampleCmd (p : Parsed) : IO UInt32 := do
   let input   : String       := p.positionalArg! "input" |>.as! String
   let outputs : Array String := p.variableArgsAs! String
@@ -26,13 +23,14 @@ def runExampleCmd (p : Parsed) : IO UInt32 := do
   return 0
 
 def installCmd := `[Cli|
-  installCmd VIA doNothing; ["0.0.1"]
-  "installCmd provides an example for a subcommand without flags or arguments."
+  installCmd NOOP;
+  "installCmd provides an example for a subcommand without flags or arguments that does nothing. " ++
+  "Versions can be omitted."
 ]
 
 def testCmd := `[Cli|
-  testCmd VIA doNothing; ["0.0.1"]
-  "testCmd provides another example for a subcommand without flags or arguments."
+  testCmd NOOP;
+  "testCmd provides another example for a subcommand without flags or arguments that does nothing."
 ]
 
 def exampleCmd : Cmd := `[Cli|
@@ -135,7 +133,7 @@ Yields:
 
   SUBCOMMANDS:
       installCmd  installCmd provides an example for a subcommand without flags or
-                  arguments.
+                  arguments that does nothing. Versions can be omitted.
       testCmd     testCmd provides another example for a subcommand without flags
-                  or arguments.
+                  or arguments that does nothing.
 -/

@@ -41,18 +41,55 @@ namespace Cli
 section Extensions
   /-- Prepends an author name to the description of the command. -/
   def author (author : String) : Extension := {
-      extendMeta := fun meta => { meta with description := s!"{author}\n{meta.description}" }
+      extend := fun cmd => cmd.update (description := s!"{author}\n{cmd.description}")
     }
 
   /-- Appends a longer description to the end of the help. -/
   def longDescription (description : String) : Extension := {
-      extendMeta := fun meta => { meta with furtherInformation? :=
-        some <| meta.furtherInformation?.optStr ++ lines #[
-          meta.furtherInformation?.optStr,
-          (if meta.furtherInformation?.isSome then "\n" else "") ++ renderSection "DESCRIPTION" description
+      extend := fun cmd => cmd.update (furtherInformation? :=
+        some <| cmd.furtherInformation?.optStr ++ lines #[
+          cmd.furtherInformation?.optStr,
+          (if cmd.hasFurtherInformation then "\n" else "") ++ renderSection "DESCRIPTION" description
         ]
-      }
+      )
     }
+
+  /-- Adds a `help` subcommand. -/
+  def helpSubCommand : Extension := {
+      priority := 0
+      extend   := fun cmd =>
+        let helpCmd := .mk 
+          (parent      := cmd)
+          (name        := "help")
+          (version?    := none)
+          (description := "Prints this message.")
+          (run         := fun _ => pure 0)
+        -- adding it once without a command handler ensures that the help will include
+        -- the help subcommand itself
+        let cmd := cmd.update (subCmds := cmd.subCmds.push helpCmd)
+        let helpCmd := helpCmd.update (run := fun _ => do 
+          cmd.toFullCmdWithoutExtensions.printHelp
+          return 0)
+        let subCmds := cmd.subCmds.set! (cmd.subCmds.size - 1) helpCmd
+        cmd.update (subCmds := subCmds)
+    }
+
+  /-- Adds a `version` subcommand. -/
+  def versionSubCommand! : Extension := {
+    extend := fun cmd =>
+      if cmd.version?.isNone then
+        panic! "Cli.versionSubCommand!: Cannot add `version` subcommand to command without a version."
+      else
+        let helpCmd := .mk 
+          (parent      := cmd)
+          (name        := "version")
+          (version?    := none)
+          (description := "Prints the version.")
+          (run         := fun _ => do 
+            cmd.toFullCmdWithoutExtensions.printVersion!
+            return 0)
+        cmd.update (subCmds := cmd.subCmds.push helpCmd)
+  }
 
   /--
   Sets default values for flags that were not set by the user according to
@@ -61,19 +98,19 @@ section Extensions
   Panics if one of the designated long flag names cannot be found in the command.
   -/
   def defaultValues! (defaults : Array (String × String)) : Extension :=
-    let findDefaultFlags meta := defaults.map <| fun (longName, defaultValue) =>
-      ⟨meta.flag! longName, defaultValue⟩
+    let findDefaultFlags cmd := defaults.map <| fun (longName, defaultValue) =>
+      ⟨cmd.flag! longName, defaultValue⟩
     {
-      extendMeta := fun meta =>
-        let defaultFlags := findDefaultFlags meta
-        let newMetaFlags := meta.flags.map fun flag =>
+      extend := fun cmd =>
+        let defaultFlags := findDefaultFlags cmd
+        let newMetaFlags := cmd.flags.map fun flag =>
           if let some defaultFlag := defaultFlags.find? (·.flag.longName = flag.longName) then
             { flag with description := flag.description ++ s!" [Default: `{defaultFlag.value}`]" }
           else
             flag
-        { meta with flags := newMetaFlags }
-      postprocess := fun meta parsed =>
-        let defaultFlags := findDefaultFlags meta
+        cmd.update (flags := newMetaFlags)
+      postprocess := fun cmd parsed =>
+        let defaultFlags := findDefaultFlags cmd
         return { parsed with flags := parsed.flags.leftUnionBy (·.flag.longName) defaultFlags }
     }
 
@@ -83,20 +120,20 @@ section Extensions
   Panics if one of the designated long flag names cannot be found in the command.
   -/
   def require! (requiredFlags : Array String) : Extension :=
-    let findRequiredFlags meta := requiredFlags.map (meta.flag! ·)
+    let findRequiredFlags cmd := requiredFlags.map (cmd.flag! ·)
     {
-      extendMeta := fun meta =>
-        let requiredFlags := findRequiredFlags meta
-        let newMetaFlags := meta.flags.map fun flag =>
-          if let some requiredFlag := requiredFlags.find? (·.longName = flag.longName) then
+      extend := fun cmd =>
+        let requiredFlags := findRequiredFlags cmd
+        let newMetaFlags := cmd.flags.map fun flag =>
+          if requiredFlags.find? (·.longName = flag.longName) |>.isSome then
             { flag with description := "[Required] " ++ flag.description }
           else
             flag
-        { meta with flags := newMetaFlags }
-      postprocess := fun meta parsed => do
+        cmd.update (flags := newMetaFlags)
+      postprocess := fun cmd parsed => do
         if parsed.hasFlag "help" ∨ parsed.hasFlag "version" then
           return parsed
-        let requiredFlags := findRequiredFlags meta
+        let requiredFlags := findRequiredFlags cmd
         let missingFlags := requiredFlags.diffBy (·.longName) <| parsed.flags.map (·.flag.longName)
         if let some missingFlag ← pure <| missingFlags.get? 0 then
           throw s!"Missing required flag `--{missingFlag.longName}`."

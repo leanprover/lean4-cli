@@ -12,29 +12,33 @@ section Utils
 
   instance [Repr α] [Repr β] : Repr (Except α β) where
     reprPrec
-    | Except.ok a,    n => s!"Except.ok ({repr a})"
-    | Except.error b, n => s!"Except.error ({repr b})"
+    | Except.ok a,    _ => s!"Except.ok ({repr a})"
+    | Except.error b, _ => s!"Except.error ({repr b})"
 
   def Cmd.processParsed (c : Cmd) (args : String) : String := Id.run do
     let mut args := args.splitOn
     if args = [""] then
       args := []
     match c.process args with
-    | Except.ok (cmd, parsed) =>
+    | Except.ok (_, parsed) =>
       return toString parsed
-    | Except.error (cmd, error) =>
+    | Except.error (_, error) =>
       return error
+
+  def Cmd.extendedHelp (c : Cmd) : String :=
+    c.extension!.extend (.ofFullCmd c) |>.toFullCmd c |>.help
+
 end Utils
 
-def doNothing (p : Parsed) : IO UInt32 := return 0
+def doNothing (_ : Parsed) : IO UInt32 := return 0
 
 def testSubSubCmd : Cmd := `[Cli|
-  testsubsubcommand VIA doNothing; ["0.0.2"]
+  testsubsubcommand VIA doNothing;
   "does this even do anything?"
 ]
 
 def testSubCmd1 : Cmd := `[Cli|
-  testsubcommand1 VIA doNothing; ["0.0.1"]
+  testsubcommand1 NOOP; ["0.0.1"]
   "a properly short description"
 
   FLAGS:
@@ -45,6 +49,10 @@ def testSubCmd1 : Cmd := `[Cli|
 
   SUBCOMMANDS:
     testSubSubCmd
+
+  EXTENSIONS:
+    helpSubCommand;
+    versionSubCommand!
 ]
 
 def testSubCmd2 : Cmd := `[Cli|
@@ -134,8 +142,17 @@ section ValidInputs
     (testCmd.processParsed "testsubcommand1 testsubsubcommand")
     == "cmd: testcommand testsubcommand1 testsubsubcommand; flags: #[]; positionalArgs: #[]; variableArgs: #[]"
 
-  #eval (testCmd.processParsed "testsubcommand2 --run asdf,geh")
+  #eval 
+    (testCmd.processParsed "testsubcommand2 --run asdf,geh")
     == "cmd: testcommand testsubcommand2; flags: #[--run]; positionalArgs: #[<ominous-input=asdf,geh>]; variableArgs: #[]"
+
+  #eval 
+    (testCmd.processParsed "testsubcommand1 help")
+    == "cmd: testcommand testsubcommand1 help; flags: #[]; positionalArgs: #[]; variableArgs: #[]"
+
+  #eval 
+    (testCmd.processParsed "testsubcommand1 version")
+    == "cmd: testcommand testsubcommand1 version; flags: #[]; positionalArgs: #[]; variableArgs: #[]"
 end ValidInputs
 
 section InvalidInputs
@@ -242,7 +259,7 @@ section Info
     == "testcommand [0.0.0]\nsome short description that happens to be much longer than necessary and hence\nneeds to be wrapped to fit into an 80 character width limit\n\nUSAGE:\n    testcommand [SUBCOMMAND] [FLAGS] <input1> <input2> <outputs>...\n\nFLAGS:\n    -h, --help                 Prints this message.\n    --version                  Prints the version.\n    --verbose                  a very verbose flag description that also needs\n                               to be wrapped to fit into an 80 character width\n                               limit\n    -x, --unknown1             this flag has a short name\n    -xn, --unknown2            short names do not need to be prefix-free\n    -ny, --unknown3            -xny will parse as -x -ny and not fail to parse\n                               as -xn -y\n    -t, --typed1 : String      flags can have typed parameters\n    -ty, --typed2              -ty parsed as --typed2, not -t=y\n    -p-n, --level-param : Nat  hyphens work, too\n\nARGS:\n    input1 : String     another very verbose description that also needs to be\n                        wrapped to fit into an 80 character width limit\n    input2 : Array Nat  arrays!\n    outputs : Nat       varargs!\n\nSUBCOMMANDS:\n    testsubcommand1  a properly short description\n    testsubcommand2  does not do anything interesting"
 
   #eval
-    testCmd.version
+    testCmd.meta.version!
     == "0.0.0"
 
   /-
@@ -294,7 +311,7 @@ section Info
     == "testcommand testsubcommand2 [0.0.-1]\ndoes not do anything interesting\n\nUSAGE:\n    testcommand testsubcommand2 [FLAGS] <ominous-input>\n\nFLAGS:\n    -h, --help  Prints this message.\n    --version   Prints the version.\n    -r, --run   really, this does not do anything. trust me.\n\nARGS:\n    ominous-input : Array String  what could this be for?"
 
   /-
-  testcommand testsubcommand1 testsubsubcommand [0.0.2]
+  testcommand testsubcommand1 testsubsubcommand
   does this even do anything?
 
   USAGE:
@@ -302,11 +319,10 @@ section Info
 
   FLAGS:
       -h, --help  Prints this message.
-      --version   Prints the version.
   -/
   #eval
     (testCmd.subCmd! "testsubcommand1" |>.subCmd! "testsubsubcommand").help
-    == "testcommand testsubcommand1 testsubsubcommand [0.0.2]\ndoes this even do anything?\n\nUSAGE:\n    testcommand testsubcommand1 testsubsubcommand [FLAGS]\n\nFLAGS:\n    -h, --help  Prints this message.\n    --version   Prints the version."
+    == "testcommand testsubcommand1 testsubsubcommand\ndoes this even do anything?\n\nUSAGE:\n    testcommand testsubcommand1 testsubsubcommand [FLAGS]\n\nFLAGS:\n    -h, --help  Prints this message."
 
   /-
   testcommand [0.0.0]
@@ -344,9 +360,32 @@ section Info
   DESCRIPTION:
       this could be really long, but i'm too lazy to type it out.
   -/
-  #eval
-    (testCmd.update' (meta := testCmd.extension!.extendMeta testCmd.meta)).help
+  #eval testCmd.extendedHelp
     == "testcommand [0.0.0]\nmhuisi\nsome short description that happens to be much longer than necessary and hence\nneeds to be wrapped to fit into an 80 character width limit\n\nUSAGE:\n    testcommand [SUBCOMMAND] [FLAGS] <input1> <input2> <outputs>...\n\nFLAGS:\n    -h, --help                 Prints this message.\n    --version                  Prints the version.\n    --verbose                  a very verbose flag description that also needs\n                               to be wrapped to fit into an 80 character width\n                               limit\n    -x, --unknown1             this flag has a short name\n    -xn, --unknown2            short names do not need to be prefix-free\n    -ny, --unknown3            -xny will parse as -x -ny and not fail to parse\n                               as -xn -y\n    -t, --typed1 : String      [Required] flags can have typed parameters\n    -ty, --typed2              -ty parsed as --typed2, not -t=y\n    -p-n, --level-param : Nat  hyphens work, too [Default: `0`]\n\nARGS:\n    input1 : String     another very verbose description that also needs to be\n                        wrapped to fit into an 80 character width limit\n    input2 : Array Nat  arrays!\n    outputs : Nat       varargs!\n\nSUBCOMMANDS:\n    testsubcommand1  a properly short description\n    testsubcommand2  does not do anything interesting\n\nDESCRIPTION:\n    this could be really long, but i'm too lazy to type it out."
+
+  /-
+  testsubcommand1 [0.0.1]
+  a properly short description
+
+  USAGE:
+      testsubcommand1 [SUBCOMMAND] [FLAGS] <city-location>
+
+  FLAGS:
+      -h, --help          Prints this message.
+      --version           Prints the version.
+      --launch-the-nukes  please avoid passing this flag at all costs.
+                          if you like, you can have newlines in descriptions.
+
+  ARGS:
+      city-location : String  can also use hyphens
+
+  SUBCOMMANDS:
+      testsubsubcommand  does this even do anything?
+      version            Prints the version.
+      help               Prints this message.
+  -/
+  #eval testSubCmd1.extendedHelp
+    == "testsubcommand1 [0.0.1]\na properly short description\n\nUSAGE:\n    testsubcommand1 [SUBCOMMAND] [FLAGS] <city-location>\n\nFLAGS:\n    -h, --help          Prints this message.\n    --version           Prints the version.\n    --launch-the-nukes  please avoid passing this flag at all costs.\n                        if you like, you can have newlines in descriptions.\n\nARGS:\n    city-location : String  can also use hyphens\n\nSUBCOMMANDS:\n    testsubsubcommand  does this even do anything?\n    version            Prints the version.\n    help               Prints this message."
 end Info
 
 end Cli
