@@ -1,4 +1,4 @@
-import Bootstrap.Data.RBTree
+import Lean.Data.RBTree
 
 section Utils
   /--
