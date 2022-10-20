@@ -3,5 +3,5 @@ open Lake DSL
 
 package Cli
 
-@[defaultTarget]
+@[default_target]
 lean_lib Cli
