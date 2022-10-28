@@ -31,7 +31,7 @@ section Utils
     /-- Deletes all elements from `left` whose `key` is in `right`. -/
     def diffBy [Ord α] (key : β → α) (left : Array β) (right : Array α)
       : Array β :=
-      let rightMap := Std.RBTree.ofList (cmp := compare) right.toList
+      let rightMap := Std.RBSet.ofList (cmp := compare) right.toList
       left.filter fun v => ¬ (rightMap.contains <| key v)
   end Array
 end Utils

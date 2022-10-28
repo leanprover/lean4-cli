@@ -1,4 +1,4 @@
-import Std.Data.RBTree
+import Std.Data.RBMap
 
 section Utils
   /--
@@ -1358,14 +1358,14 @@ section Parsing
     private partial def readMultiFlag? : ParseM (Option (Array Parsed.Flag)) := do
       let some (flagContent, true) ← readFlagContent?
         | return none
-      let some (parsedFlags : Array (String × Parsed.Flag)) ← loop flagContent Std.RBTree.empty
+      let some (parsedFlags : Array (String × Parsed.Flag)) ← loop flagContent Std.RBSet.empty
         | return none
       for (inputFlagName, parsedFlag) in parsedFlags do
         ensureFlagUnique parsedFlag.flag ⟨inputFlagName, true⟩
       skip
       return some <| parsedFlags.map (·.2)
     where
-      loop (flagContent : String) (matched : Std.RBTree String compare)
+      loop (flagContent : String) (matched : Std.RBSet String compare)
         : ParseM (Option (Array (String × Parsed.Flag))) := do
         -- this is not tail recursive, but that's fine: `loop` will only recurse further if the corresponding
         -- flag has not been matched yet, meaning that this can only overflow if the application has an
