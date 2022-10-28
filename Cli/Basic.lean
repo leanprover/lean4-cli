@@ -1,4 +1,5 @@
 import Std.Data.RBMap
+import Std.Data.Option.Basic
 
 section Utils
   /--
@@ -178,8 +179,6 @@ section Utils
   end Array
 
   namespace Option
-    def join (x : Option (Option α)) : Option α := do ←x
-
     /--
     Returns `""` if the passed `Option` is `none`, otherwise
     converts the contained value using a `ToString` instance.
