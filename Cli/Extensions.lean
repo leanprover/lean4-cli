@@ -1,5 +1,7 @@
 import Cli.Basic
 
+namespace Cli
+
 section Utils
   namespace Array
     /--
@@ -36,8 +38,6 @@ section Utils
   end Array
 end Utils
 
-namespace Cli
-
 section Extensions
   /-- Prepends an author name to the description of the command. -/
   def author (author : String) : Extension := {
@@ -47,8 +47,8 @@ section Extensions
   /-- Appends a longer description to the end of the help. -/
   def longDescription (description : String) : Extension := {
       extend := fun cmd => cmd.update (furtherInformation? :=
-        some <| cmd.furtherInformation?.optStr ++ lines #[
-          cmd.furtherInformation?.optStr,
+        some <| Option.optStr cmd.furtherInformation? ++ lines #[
+          Option.optStr cmd.furtherInformation?,
           (if cmd.hasFurtherInformation then "\n" else "") ++ renderSection "DESCRIPTION" description
         ]
       )
@@ -58,7 +58,7 @@ section Extensions
   def helpSubCommand : Extension := {
       priority := 0
       extend   := fun cmd =>
-        let helpCmd := .mk 
+        let helpCmd := .mk
           (parent      := cmd)
           (name        := "help")
           (version?    := none)
@@ -67,7 +67,7 @@ section Extensions
         -- adding it once without a command handler ensures that the help will include
         -- the help subcommand itself
         let cmd := cmd.update (subCmds := cmd.subCmds.push helpCmd)
-        let helpCmd := helpCmd.update (run := fun _ => do 
+        let helpCmd := helpCmd.update (run := fun _ => do
           cmd.toFullCmdWithoutExtensions.printHelp
           return 0)
         let subCmds := cmd.subCmds.set! (cmd.subCmds.size - 1) helpCmd
@@ -80,12 +80,12 @@ section Extensions
       if cmd.version?.isNone then
         panic! "Cli.versionSubCommand!: Cannot add `version` subcommand to command without a version."
       else
-        let helpCmd := .mk 
+        let helpCmd := .mk
           (parent      := cmd)
           (name        := "version")
           (version?    := none)
           (description := "Prints the version.")
-          (run         := fun _ => do 
+          (run         := fun _ => do
             cmd.toFullCmdWithoutExtensions.printVersion!
             return 0)
         cmd.update (subCmds := cmd.subCmds.push helpCmd)
@@ -111,7 +111,7 @@ section Extensions
         cmd.update (flags := newMetaFlags)
       postprocess := fun cmd parsed =>
         let defaultFlags := findDefaultFlags cmd
-        return { parsed with flags := parsed.flags.leftUnionBy (·.flag.longName) defaultFlags }
+        return { parsed with flags := Array.leftUnionBy (·.flag.longName) parsed.flags defaultFlags }
     }
 
   /--
@@ -134,7 +134,7 @@ section Extensions
         if parsed.hasFlag "help" ∨ parsed.hasFlag "version" then
           return parsed
         let requiredFlags := findRequiredFlags cmd
-        let missingFlags := requiredFlags.diffBy (·.longName) <| parsed.flags.map (·.flag.longName)
+        let missingFlags := Array.diffBy (·.longName) requiredFlags <| parsed.flags.map (·.flag.longName)
         if let some missingFlag ← pure <| missingFlags.get? 0 then
           throw s!"Missing required flag `--{missingFlag.longName}`."
         return parsed
