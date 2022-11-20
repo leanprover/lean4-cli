@@ -260,7 +260,7 @@ section Configuration
     reprPrec p _ := p.name
 
   instance [inst : ParseableType τ] : CoeDep Type τ ParamType where
-    coe := ⟨inst.name τ, (inst.parse? · |>.isSome)⟩
+    coe := ⟨inst.name, (inst.parse? · |>.isSome)⟩
 
   /--
   Represents a flag, usually known as "option" in standard terminology.
