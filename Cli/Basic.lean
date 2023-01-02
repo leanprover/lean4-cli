@@ -1,5 +1,6 @@
 import Std.Data.RBMap
 import Std.Data.Option.Basic
+import YatimaStdLib.Array
 
 section Utils
   /--
@@ -8,21 +9,15 @@ section Utils
   as they were passed.
   -/
   def List.matchLength (a : List α) (b : List α) (unit : α) : List α × List α :=
-    if a.length < b.length then
-      (a ++ .replicate (b.length - a.length) unit, b)
+    let aLength := a.length
+    let bLength := b.length
+    if aLength < b.length then
+      (a ++ .replicate (bLength - aLength) unit, b)
     else
-      (a, b ++ .replicate (a.length - b.length) unit)
+      (a, b ++ .replicate (aLength - bLength) unit)
 
-  namespace Array
-    def join (xss : Array (Array α)) : Array α := Id.run do
-      let mut r := #[]
-      for xs in xss do
-        r := r ++ xs
-      return r
-
-    def flatMap (f : α → Array β) (xs : Array α) : Array β :=
-      xs.map f |>.join
-  end Array
+  def Array.flatMap (f : α → Array β) (xs : Array α) : Array β :=
+    xs.map f |>.join
 
   namespace String
     /--
