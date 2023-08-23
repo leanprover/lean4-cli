@@ -239,19 +239,29 @@ section Configuration
   or a relative path to a Lean file (e.g. `Mathlib/Topology/Basic.lean`). -/
   def ModuleName := Name
 
-  open Lean System in
+  /-- Check if a `ModuleName` has no `.num` components, and is not `.anonymous`. -/
+  def ModuleName.isValid : ModuleName → Bool
+    | .anonymous => false
+    | m          => loop m
+  where
+    loop : ModuleName → Bool
+      | .anonymous => true
+      | .str pre _ => loop pre
+      | .num ..    => false
+
+  open System in
   /-- A custom command-line argument parser that allows either relative paths to Lean files,
   (e.g. `Mathlib/Topology/Basic.lean`) or the module name (e.g. `Mathlib.Topology.Basic`). -/
   instance : ParseableType ModuleName where
     name     := "ModuleName"
-    parse? s :=
+    parse? s := do
       if s.endsWith ".lean" then
         let pathComponents := (s : FilePath).withExtension "" |>.components
-        some <| pathComponents.foldl Name.mkStr Name.anonymous
+        return pathComponents.foldl Name.mkStr Name.anonymous
       else
-        match String.toName s with
-        | n@(.str _ _) => some n
-        | _ => none
+        let name := String.toName s
+        guard <| ModuleName.isValid name
+        return name
 
   instance [inst : ParseableType α] : ParseableType (Array α) where
     name :=
