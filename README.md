@@ -5,7 +5,7 @@ See [the documentation of Lake](https://github.com/leanprover/lake).
 Use one of the following for the `<tag>` in the dependency source `Source.git "https://github.com/mhuisi/lean4-cli.git" "<tag>"`:
 - `main` if you want to stay in sync with Lean 4 milestone releases. The `main` branch will contain a working version of lean4-cli for the most recent Lean 4 milestone.
 - `nightly` if you want to stay in sync with Lean 4 nightly releases. The `nightly` branch will contain a working version of lean4-cli for the most recent Lean 4 nightly build.
-- One of the specific release tags if you want to pin a specific version, e.g. `v1.0.0-lv4.0.0-m4` for v1.0.0 for the 4th Lean 4 milestone release or `v1.0.0-lnightly-2022-05-21` for v1.0.0 for the Lean 4 nightly version from 2022-05-21. Only nightlies where lean4-cli broke will receive a release tag.
+- One of the specific release tags if you want to pin a specific version, e.g. `v1.0.0-lv4.0.0-m5` for v1.0.0 for the 5th Lean 4 milestone release or `v1.0.0-lnightly-2023-08-15` for v1.0.0 for the Lean 4 nightly version from 2023-08-15.
 
 ### Configuration
 Commands are configured with a lightweight DSL. The following declarations define a command `exampleCmd` with two subcommands `installCmd` and `testCmd`. `runExampleCmd` denotes a handler that is called when the command is run and is described further down below in the **Command Handlers** subsection.
@@ -34,6 +34,9 @@ def exampleCmd : Cmd := `[Cli|
     o, optimize;                "Declares a flag `--optimize` with an associated short alias `-o`."
     p, priority : Nat;          "Declares a flag `--priority` with an associated short alias `-p` " ++
                                 "that takes an argument of type `Nat`."
+    module : ModuleName;        "Declares a flag `--module` that takes an argument of type `ModuleName` " ++
+                                "which be used to reference Lean modules like `Init.Data.Array` " ++
+                                "or Lean files using a relative path like `Init/Data/Array.lean`."
     "set-paths" : Array String; "Declares a flag `--set-paths` " ++
                                 "that takes an argument of type `Array Nat`. " ++
                                 "Quotation marks allow the use of hyphens."
@@ -77,6 +80,10 @@ def runExampleCmd (p : Parsed) : IO UInt32 := do
   let priority : Nat := p.flag! "priority" |>.as! Nat
   IO.println <| "Flag `--priority` always has at least a default value: " ++ toString priority
 
+  if p.hasFlag "module" then
+    let moduleName : ModuleName := p.flag! "module" |>.as! ModuleName
+    IO.println <| s!"Flag `--module` was set to `{moduleName}`."
+
   if let some setPathsFlag := p.flag? "set-paths" then
     IO.println <| toString <| setPathsFlag.as! (Array String)
   return 0
@@ -89,7 +96,7 @@ Below you can find some simple examples of how to pass user input to the Cli lib
 def main (args : List String) : IO UInt32 :=
   exampleCmd.validate args
 
-#eval main <| "-i -o -p 1 --set-paths=path1,path2,path3 input output1 output2".splitOn " "
+#eval main <| "-i -o -p 1 --module=Lean.Compiler --set-paths=path1,path2,path3 input output1 output2".splitOn " "
 /-
 Yields:
   Input: input
@@ -97,6 +104,7 @@ Yields:
   Flag `--invert` was set.
   Flag `--optimize` was set.
   Flag `--priority` always has at least a default value: 1
+  Flag `--module` was set to `Lean.Compiler`.
   #[path1, path2, path3]
 -/
 
@@ -143,6 +151,11 @@ FLAGS:
     -p, --priority : Nat        Declares a flag `--priority` with an associated
                                 short alias `-p` that takes an argument of type
                                 `Nat`. [Default: `0`]
+    --module : ModuleName       Declares a flag `--module` that takes an
+                                argument of type `ModuleName` which be used to
+                                reference Lean modules like `Init.Data.Array` or
+                                Lean files using a relative path like
+                                `Init/Data/Array.lean`.
     --set-paths : Array String  Declares a flag `--set-paths` that takes an
                                 argument of type `Array Nat`. Quotation marks
                                 allow the use of hyphens.
