@@ -232,36 +232,38 @@ section Configuration
       | "" => none
       | s  => s.toInt?
 
-  open Lean
-
-  /-- We provide a type synonym here for `Name`, which will carry a `ParseableType ModuleName`
+  /-- A type synonym for `Name`, which will carry a `ParseableType ModuleName`
   instance, supporting parsing either a module name (e.g. `Mathlib.Topology.Basic`)
   or a relative path to a Lean file (e.g. `Mathlib/Topology/Basic.lean`). -/
-  def ModuleName := Name
+  def ModuleName := Lean.Name
+    deriving Inhabited, BEq, Repr, ToString
 
-  /-- Check if a `ModuleName` has no `.num` components, and is not `.anonymous`. -/
+  /-- Check that a `ModuleName` has no `.num` or empty components, and is not `.anonymous`. -/
   def ModuleName.isValid : ModuleName → Bool
     | .anonymous => false
-    | m          => loop m
+    | m          => loop m true
   where
-    loop : ModuleName → Bool
-      | .anonymous => true
-      | .str pre _ => loop pre
-      | .num ..    => false
+    loop : ModuleName → Bool → Bool
+      | .anonymous, allValid => allValid
+      | .str pre s, allValid => loop pre <| allValid ∧ ¬s.isEmpty
+      | .num ..,    _        => false
 
-  open System in
+  open Lean System in
   /-- A custom command-line argument parser that allows either relative paths to Lean files,
   (e.g. `Mathlib/Topology/Basic.lean`) or the module name (e.g. `Mathlib.Topology.Basic`). -/
   instance : ParseableType ModuleName where
     name     := "ModuleName"
     parse? s := do
-      if s.endsWith ".lean" then
-        let pathComponents := (s : FilePath).withExtension "" |>.components
-        return pathComponents.foldl Name.mkStr Name.anonymous
-      else
-        let name := String.toName s
-        guard <| ModuleName.isValid name
-        return name
+      if s == ".lean" then
+        none
+      let name := 
+        if s.endsWith ".lean" then
+          let pathComponents := (s : FilePath).withExtension "" |>.components
+          pathComponents.foldl .mkStr .anonymous
+        else
+          s.toName
+      guard <| ModuleName.isValid name
+      return name
 
   instance [inst : ParseableType α] : ParseableType (Array α) where
     name :=
