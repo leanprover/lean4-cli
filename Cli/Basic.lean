@@ -232,6 +232,37 @@ section Configuration
       | "" => none
       | s  => s.toInt?
 
+  open Lean
+
+  /-- We provide a type synonym here for `Name`, which will carry a `ParseableType ModuleName`
+  instance, supporting parsing either a module name (e.g. `Mathlib.Topology.Basic`)
+  or a relative path to a Lean file (e.g. `Mathlib/Topology/Basic.lean`). -/
+  def ModuleName := Name
+
+  /-- Check if a `ModuleName` has no `.num` components, and is not `.anonymous`. -/
+  def ModuleName.isValid : ModuleName → Bool
+    | .anonymous => false
+    | m          => loop m
+  where
+    loop : ModuleName → Bool
+      | .anonymous => true
+      | .str pre _ => loop pre
+      | .num ..    => false
+
+  open System in
+  /-- A custom command-line argument parser that allows either relative paths to Lean files,
+  (e.g. `Mathlib/Topology/Basic.lean`) or the module name (e.g. `Mathlib.Topology.Basic`). -/
+  instance : ParseableType ModuleName where
+    name     := "ModuleName"
+    parse? s := do
+      if s.endsWith ".lean" then
+        let pathComponents := (s : FilePath).withExtension "" |>.components
+        return pathComponents.foldl Name.mkStr Name.anonymous
+      else
+        let name := String.toName s
+        guard <| ModuleName.isValid name
+        return name
+
   instance [inst : ParseableType α] : ParseableType (Array α) where
     name :=
       if inst.name.contains ' ' then
