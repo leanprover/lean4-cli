@@ -388,4 +388,38 @@ section Info
     == "testsubcommand1 [0.0.1]\na properly short description\n\nUSAGE:\n    testsubcommand1 [SUBCOMMAND] [FLAGS] <city-location>\n\nFLAGS:\n    -h, --help          Prints this message.\n    --version           Prints the version.\n    --launch-the-nukes  please avoid passing this flag at all costs.\n                        if you like, you can have newlines in descriptions.\n\nARGS:\n    city-location : String  can also use hyphens\n\nSUBCOMMANDS:\n    testsubsubcommand  does this even do anything?\n    version            Prints the version.\n    help               Prints this message."
 end Info
 
+section ModuleName
+  def ModuleName.parse? : String → Option ModuleName := ParseableType.parse?
+
+  section ValidInputs
+    #eval ModuleName.parse? "Lean.Mathlib.Data" == some `Lean.Mathlib.Data
+    #eval ModuleName.parse? "F00Bar.BarF00" == some `F00Bar.BarF00
+    #eval ModuleName.parse? "foo_bar" == some `foo_bar
+    #eval ModuleName.parse? "asdf.«foo bar»" == some `asdf.«foo bar»
+    #eval ModuleName.parse? "«1».«2»" == some `«1».«2»
+    #eval ModuleName.parse? "« »" == some `« »
+    #eval ModuleName.parse? "Lean/Mathlib/Data/Afile.lean" == some `Lean.Mathlib.Data.Afile
+    #eval ModuleName.parse? "Foo.lean" == some `Foo
+    #eval ModuleName.parse? "..lean" == some `«.»
+    #eval ModuleName.parse? " .lean" == some `« »
+    #eval ModuleName.parse? " /Foo.lean" == some `« ».Foo
+  end ValidInputs
+
+  section InvalidInputs
+    #eval ModuleName.parse? "" == none
+    #eval ModuleName.parse? "." == none
+    #eval ModuleName.parse? ".asdf" == none
+    #eval ModuleName.parse? "asdf." == none
+    #eval ModuleName.parse? "1.asdf" == none
+    #eval ModuleName.parse? "asdf.1" == none
+    #eval ModuleName.parse? "1asdf" == none
+    #eval ModuleName.parse? "foo bar" == none
+    #eval ModuleName.parse? "foo,bar" == none
+    #eval ModuleName.parse? "«»" == none
+    #eval ModuleName.parse? "x.«»" == none
+    #eval ModuleName.parse? ".lean" == none
+    #eval ModuleName.parse? "/foo.lean" == none
+  end InvalidInputs
+end ModuleName
+
 end Cli
