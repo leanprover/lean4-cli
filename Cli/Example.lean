@@ -48,7 +48,7 @@ def exampleCmd : Cmd := `[Cli|
     p, priority : Nat;          "Declares a flag `--priority` with an associated short alias `-p` " ++
                                 "that takes an argument of type `Nat`."
     module : ModuleName;        "Declares a flag `--module` that takes an argument of type `ModuleName` " ++
-                                "which be used to reference Lean modules like `Init.Data.Array` " ++
+                                "which can be used to reference Lean modules like `Init.Data.Array` " ++
                                 "or Lean files using a relative path like `Init/Data/Array.lean`."
     "set-paths" : Array String; "Declares a flag `--set-paths` " ++
                                 "that takes an argument of type `Array Nat`. " ++
@@ -130,9 +130,9 @@ Yields:
                                   short alias `-p` that takes an argument of type
                                   `Nat`. [Default: `0`]
       --module : ModuleName       Declares a flag `--module` that takes an
-                                  argument of type `ModuleName` which be used to
-                                  reference Lean modules like `Init.Data.Array` or
-                                  Lean files using a relative path like
+                                  argument of type `ModuleName` which can be used
+                                  to reference Lean modules like `Init.Data.Array`
+                                  or Lean files using a relative path like
                                   `Init/Data/Array.lean`.
       --set-paths : Array String  Declares a flag `--set-paths` that takes an
                                   argument of type `Array Nat`. Quotation marks
