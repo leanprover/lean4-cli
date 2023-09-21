@@ -1,4 +1,6 @@
-import Std.Data.RBTree
+import Lean.Data.RBTree
+
+namespace Cli
 
 section Utils
   /--
@@ -20,7 +22,7 @@ section Utils
       return r
 
     def flatMap (f : α → Array β) (xs : Array α) : Array β :=
-      xs.map f |>.join
+      join (xs.map f)
   end Array
 
   namespace String
@@ -52,7 +54,7 @@ section Utils
     Panics if `maxWidth = 0`.
     -/
     def wrapAt! (s : String) (maxWidth : Nat) : String :=
-      s.wrapAt? maxWidth |>.get!
+      wrapAt? s maxWidth |>.get!
 
     /--
     Deletes all trailing spaces at the end of every line, as seperated by `\n`.
@@ -88,7 +90,7 @@ section Utils
             continue
           -- if `w` is the first proper word, this will insert a `\n` before the text, which we remove later.
           -- `w.wrapAt! maxWidth` ensures that our new line is not already too large.
-          let wordOnNewLine := "\n" ++ w.wrapAt! maxWidth
+          let wordOnNewLine := "\n" ++ wrapAt! w maxWidth
           result := result.push wordOnNewLine
           let wrappedLines : Array String := wordOnNewLine.splitOn "\n" |>.toArray
           currentLineWidth := wrappedLines[wrappedLines.size - 1]!.length + 1
@@ -111,7 +113,7 @@ section Utils
     Panics if `maxWidth = 0`.
     -/
     def wrapWordsAt! (s : String) (maxWidth : Nat) : String :=
-      s.wrapWordsAt? maxWidth |>.get!
+      wrapWordsAt? s maxWidth |>.get!
 
     /--
     Inserts `n` spaces before each line as seperated by `\n` in `s`.
@@ -146,16 +148,16 @@ section Utils
       if maxWidth - margin - minRightColumnWidth < 1 then
         return none
       let rows : Array (List String × String) := rows.map fun (left, right) =>
-        (maxWidth - margin - minRightColumnWidth |> left.wrapWordsAt! |>.splitOn "\n", right)
+        (maxWidth - margin - minRightColumnWidth |> String.wrapWordsAt! left |>.splitOn "\n", right)
       let leftColumnWidth :=
-        rows.flatMap (·.1.map (·.length) |>.toArray)
+        flatMap (·.1.map (·.length) |>.toArray) rows
           |>.getMax? (· < ·)
           |>.get!
       let leftColumnWidth := leftColumnWidth + margin
       let rows : Array (List String × List String) := rows.map fun (left, right) =>
-        (left, maxWidth - leftColumnWidth |> right.wrapWordsAt! |>.splitOn "\n")
-      let rows : Array (String × String) := rows.flatMap fun (left, right) =>
-        let (left, right) : List String × List String := left.matchLength right ""
+        (left, maxWidth - leftColumnWidth |> String.wrapWordsAt! right |>.splitOn "\n")
+      let rows : Array (String × String) := flatMap (xs := rows) fun (left, right) =>
+        let (left, right) : List String × List String := List.matchLength left right ""
         left.zip right |>.toArray
       let rows : Array String := rows.map fun (left, right) =>
         if right = "" then
@@ -174,7 +176,7 @@ section Utils
     -/
     def renderTable! (rows : Array (String × String)) (maxWidth : Nat) (margin : Nat := 2)
       : String :=
-      rows.renderTable? maxWidth margin |>.get!
+      renderTable? rows maxWidth margin |>.get!
   end Array
 
   namespace Option
@@ -189,8 +191,6 @@ section Utils
       | some v => toString v
   end Option
 end Utils
-
-namespace Cli
 
 section Configuration
   /--
@@ -232,6 +232,39 @@ section Configuration
       | "" => none
       | s  => s.toInt?
 
+  /-- A type synonym for `Name`, which will carry a `ParseableType ModuleName`
+  instance, supporting parsing either a module name (e.g. `Mathlib.Topology.Basic`)
+  or a relative path to a Lean file (e.g. `Mathlib/Topology/Basic.lean`). -/
+  def ModuleName := Lean.Name
+    deriving Inhabited, BEq, Repr, ToString
+
+  /-- Check that a `ModuleName` has no `.num` or empty components, and is not `.anonymous`. -/
+  def ModuleName.isValid : ModuleName → Bool
+    | .anonymous => false
+    | m          => loop m true
+  where
+    loop : ModuleName → Bool → Bool
+      | .anonymous, allValid => allValid
+      | .str pre s, allValid => loop pre <| allValid ∧ ¬s.isEmpty
+      | .num ..,    _        => false
+
+  open Lean System in
+  /-- A custom command-line argument parser that allows either relative paths to Lean files,
+  (e.g. `Mathlib/Topology/Basic.lean`) or the module name (e.g. `Mathlib.Topology.Basic`). -/
+  instance : ParseableType ModuleName where
+    name     := "ModuleName"
+    parse? s := do
+      if s == ".lean" then
+        none
+      let name := 
+        if s.endsWith ".lean" then
+          let pathComponents := (s : FilePath).withExtension "" |>.components
+          pathComponents.foldl .mkStr .anonymous
+        else
+          s.toName
+      guard <| ModuleName.isValid name
+      return name
+
   instance [inst : ParseableType α] : ParseableType (Array α) where
     name :=
       if inst.name.contains ' ' then
@@ -260,7 +293,7 @@ section Configuration
     reprPrec p _ := p.name
 
   instance [inst : ParseableType τ] : CoeDep Type τ ParamType where
-    coe := ⟨inst.name τ, (inst.parse? · |>.isSome)⟩
+    coe := ⟨inst.name, (inst.parse? · |>.isSome)⟩
 
   /--
   Represents a flag, usually known as "option" in standard terminology.
@@ -457,9 +490,9 @@ section Configuration
     /-- Checks whether `m` has a flag with the corresponding `shortName`. -/
     def hasFlagByShortName (m : Meta) (name : String) : Bool := m.flagByShortName? name |>.isSome
 
-    /-- 
+    /--
     Adds help (`-h, --help`) and version (`--version`) flags to `m`. Does not add
-    a version flag if `m` does not designate a version. 
+    a version flag if `m` does not designate a version.
     -/
     def addHelpAndVersionFlags (m : Meta) : Meta := Id.run do
       let helpFlag := .paramless
@@ -475,7 +508,7 @@ section Configuration
       { m with flags := fixedFlags ++ m.flags }
   end Cmd.Meta
 
-  /-- 
+  /--
   Represents a recursive variant of `Cmd.Meta` that is used in `Parsed`
   to replicate the recursive subcommand structure of a command
   without referring to the command itself.
@@ -679,7 +712,7 @@ section Configuration
       (subCmds             : Array ExtendableCmd := #[])
       : ExtendableCmd :=
         .mk'
-          ⟨name, parent.meta.parentNames.push parent.meta.name, version?, description, furtherInformation?, 
+          ⟨name, parent.meta.parentNames.push parent.meta.name, version?, description, furtherInformation?,
             flags, positionalArgs, variableArg?⟩
           run subCmds
 
@@ -710,7 +743,7 @@ section Configuration
       (subCmds             : Array ExtendableCmd := #[])
       : ExtendableCmd :=
         .mkWithHelpAndVersionFlags'
-          ⟨name, parent.meta.parentNames.push parent.meta.name, version?, description, furtherInformation?, 
+          ⟨name, parent.meta.parentNames.push parent.meta.name, version?, description, furtherInformation?,
             flags, positionalArgs, variableArg?⟩
           run subCmds
 
@@ -783,18 +816,18 @@ section Configuration
   - The output of the parser can be postprocessed and validated.
   -/
   structure Extension where
-    /-- 
+    /--
     Priority that dictates how early an extension is applied.
     The lower the priority, the later it is applied.
     -/
     priority : Nat := 1024
-    /-- 
+    /--
     Extends a command to adjust the displayed help.
     The recursive subcommand structure may be mutated.
     -/
     extend : ExtendableCmd → ExtendableCmd := id
-    /-- 
-    Processes and validates the output of the parser for the given `ExtendableCmd`. 
+    /--
+    Processes and validates the output of the parser for the given `ExtendableCmd`.
     Takes the `ExtendableCmd` that results from all extensions being applied.
     If postprocessing mutates the subcommand structure in `Parsed.cmd`, care must be taken to update
     `Parsed.parent?` accordingly as well.
@@ -852,7 +885,7 @@ section Configuration
         let subCmdParentNames := parentNames.push c.meta.name
         let subCmds := c.subCmds.map (loop · subCmdParentNames)
         .init { c.meta with parentNames := parentNames } c.run subCmds c.extension?
-    
+
     /--
     Creates a new command. Adds a `-h, --help` and a `--version` flag if `meta` designates a version.
     Updates the `parentNames` of all subcommands.
@@ -943,11 +976,11 @@ section Configuration
     /-- Converts `c` back into a `Cli.Cmd`, using the extensions denoted in `original`. -/
     partial def toFullCmd (c : ExtendableCmd) (original : Cli.Cmd) : Cli.Cmd := Id.run do
       let extensions := collectExtensions original
-      let mut extensionIndex := Std.mkRBMap String (Option Extension) compare
+      let mut extensionIndex := Lean.mkRBMap String (Option Extension) compare
       for ⟨fullName, extension?⟩ in extensions do
         extensionIndex := extensionIndex.insert fullName extension?
       let rec loop (c : ExtendableCmd) : Cli.Cmd :=
-        let extension? := do extensionIndex.find? (← c.originalFullName?) |>.join
+        let extension? := do extensionIndex.find? (← c.originalFullName?) |> Option.join
         let subCmds := c.subCmds.map loop
         .init c.meta c.run subCmds extension?
       loop c |>.updateParentNames |> prependOriginalParentNames
@@ -1052,7 +1085,7 @@ section Macro
           (description    := $description)
           (flags          := $(quote (← flags.getD #[] |>.mapM expandFlag)))
           (positionalArgs := $(quote (← positionalArgs.getD #[] |>.mapM expandPositionalArg)))
-          (variableArg?   := $(quote (← variableArg.join.mapM expandVariableArg)))
+          (variableArg?   := $(quote (← (Option.join variableArg).mapM expandVariableArg)))
           (run            := $(← expandRunFun run))
           (subCmds        := $(quote (subCommands.getD ⟨#[]⟩).getElems))
           (extension?     := some <| Array.foldl Extension.then { : Extension } <| Array.qsort
@@ -1060,6 +1093,9 @@ section Macro
 end Macro
 
 section Info
+  open Cli.String
+  open Cli.Option
+
   /-- Maximum width within which all formatted text should fit. -/
   def maxWidth                  : Nat := 80
   /-- Amount of spaces with which section content is indented. -/
@@ -1067,9 +1103,9 @@ section Info
   /-- Maximum width within which all formatted text should fit, after indentation. -/
   def maxIndentedWidth          : Nat := maxWidth - indentation
   /-- Formats `xs` by `String.optJoin`ing the components with a single space. -/
-  def line  (xs : Array String) : String := " ".optJoin xs
+  def line  (xs : Array String) : String := optJoin xs " "
   /-- Formats `xs` by `String.optJoin`ing the components with a newline `\n`. -/
-  def lines (xs : Array String) : String := "\n".optJoin xs
+  def lines (xs : Array String) : String := optJoin xs "\n"
 
   /--
   Renders a help section with the designated `title` and `content`.
@@ -1088,12 +1124,12 @@ section Info
       else
         return s!"{title}:"
     lines #[
-      titleLine?.optStr,
-      content |>.wrapWordsAt! maxIndentedWidth |>.indent indentation
+      optStr titleLine?,
+      wrapWordsAt! content maxIndentedWidth |> indent (n := indentation)
     ]
 
   /--
-  Renders a table using `Array.renderTable!` and then renders a section with
+  Renders a table using `Cli.Array.renderTable!` and then renders a section with
   the designated `title` and the rendered table as content.
   -/
   def renderTable
@@ -1101,30 +1137,30 @@ section Info
     (columns                : Array (String × String))
     (emptyTablePlaceholder? : Option String := none)
     : String :=
-    let table := columns.renderTable! (maxWidth := maxIndentedWidth)
+    let table := Array.renderTable! columns (maxWidth := maxIndentedWidth)
     renderSection title table emptyTablePlaceholder?
 
   namespace Cmd
     private def metaDataInfo (c : Cmd) : String :=
       let version? : Option String := do return s!"[{← c.meta.version?}]"
       lines #[
-        line #[c.meta.fullName, version?.optStr] |>.wrapWordsAt! maxWidth,
-        c.meta.description.wrapWordsAt! maxWidth
+        line #[c.meta.fullName, optStr version?] |> wrapWordsAt! (maxWidth := maxWidth),
+        wrapWordsAt! c.meta.description maxWidth
       ]
 
     private def usageInfo (c : Cmd) : String :=
       let subCmdTitle? : Option String := if ¬c.subCmds.isEmpty then "[SUBCOMMAND]" else none
       let posArgNames  : String        := line <| c.meta.positionalArgs.map (s!"<{·.name}>")
       let varArgName?  : Option String := do return s!"<{(← c.meta.variableArg?).name}>..."
-      let info := line #[c.meta.fullName, subCmdTitle?.optStr, "[FLAGS]", posArgNames, varArgName?.optStr]
+      let info := line #[c.meta.fullName, optStr subCmdTitle?, "[FLAGS]", posArgNames, optStr varArgName?]
       renderSection "USAGE" info
 
     private def flagInfo (c : Cmd) : String :=
       let columns : Array (String × String) := c.meta.flags.map fun flag =>
         let shortName?    : Option String := do return s!"-{← flag.shortName?}"
-        let names         : String        := ", ".optJoin #[shortName?.optStr, s!"--{flag.longName}"]
+        let names         : String        := optJoin #[optStr shortName?, s!"--{flag.longName}"] ", "
         let type?         : Option String := if ¬ flag.isParamless then s!": {flag.type.name}" else none
-        (line #[names, type?.optStr], flag.description)
+        (line #[names, optStr type?], flag.description)
       renderTable "FLAGS" columns (emptyTablePlaceholder? := "None")
 
     private def positionalArgInfo (c : Cmd) : String :=
@@ -1148,14 +1184,14 @@ section Info
         "\n" ++ c.flagInfo,
         (if ¬c.meta.positionalArgs.isEmpty ∨ c.meta.hasVariableArg then "\n" else "") ++ c.positionalArgInfo,
         (if ¬c.subCmds.isEmpty then "\n" else "") ++ c.subCommandInfo,
-        (if c.meta.hasFurtherInformation then "\n" else "") ++ c.meta.furtherInformation?.optStr
+        (if c.meta.hasFurtherInformation then "\n" else "") ++ optStr c.meta.furtherInformation?
       ]
 
     /-- Renders an error for `c` with the designated message `msg`. -/
     def error (c : Cmd) (msg : String) : String :=
       lines #[
-        msg.wrapWordsAt! maxWidth,
-        s!"Run `{c.meta.fullName} -h` for further information.".wrapWordsAt! maxWidth
+        wrapWordsAt! msg maxWidth,
+        wrapWordsAt! s!"Run `{c.meta.fullName} -h` for further information." maxWidth
       ]
 
     /-- Prints the help for `c`. -/
@@ -1216,7 +1252,7 @@ section Parsing
             return s!" (`--{flag.longName}`)"
           else
             return s!" (`-{← flag.shortName?}`)"
-        s!"Duplicate flag `{inputFlag}`{complementaryName?.optStr}.")
+        s!"Duplicate flag `{inputFlag}`{Option.optStr complementaryName?}.")
     | redundantFlagArg
       (flag       : Flag)
       (inputFlag  : InputFlag)
@@ -1358,14 +1394,14 @@ section Parsing
     private partial def readMultiFlag? : ParseM (Option (Array Parsed.Flag)) := do
       let some (flagContent, true) ← readFlagContent?
         | return none
-      let some (parsedFlags : Array (String × Parsed.Flag)) ← loop flagContent Std.RBTree.empty
+      let some (parsedFlags : Array (String × Parsed.Flag)) ← loop flagContent Lean.RBTree.empty
         | return none
       for (inputFlagName, parsedFlag) in parsedFlags do
         ensureFlagUnique parsedFlag.flag ⟨inputFlagName, true⟩
       skip
       return some <| parsedFlags.map (·.2)
     where
-      loop (flagContent : String) (matched : Std.RBTree String compare)
+      loop (flagContent : String) (matched : Lean.RBTree String compare)
         : ParseM (Option (Array (String × Parsed.Flag))) := do
         -- this is not tail recursive, but that's fine: `loop` will only recurse further if the corresponding
         -- flag has not been matched yet, meaning that this can only overflow if the application has an
@@ -1538,12 +1574,12 @@ section Parsing
     partial def applyExtensions (c : Cmd) : Cmd := Id.run do
       let subCmds := c.subCmds.map applyExtensions
       let c := c.update (subCmds := subCmds)
-      let some extension := c.extension? 
+      let some extension := c.extension?
         | return c
       extension.extend (.ofFullCmd c) |>.toFullCmd c
 
     /--
-    Processes `args` by applying all extensions in `c`, `Cmd.parse?`ing the input according to `c` 
+    Processes `args` by applying all extensions in `c`, `Cmd.parse?`ing the input according to `c`
     and then applying the postprocessing extension of the respective (sub)command that was called.
     Note that `args` designates the list `<foo>` in `somebinary <foo>`.
     Returns either the (sub)command that an error occured in and the corresponding error message or
