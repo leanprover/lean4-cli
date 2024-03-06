@@ -1,6 +1,6 @@
 # lean4-cli
 ## Usage
-See [the documentation of Lake](https://github.com/leanprover/lake).
+See [the documentation of Lake](https://github.com/leanprover/lean4/blob/master/src/lake/README.md).
 
 Use one of the following for the `<tag>` in the dependency source `Source.git "https://github.com/leanprover/lean4-cli.git" "<tag>"`:
 - `main` if you want to stay in sync with Lean 4 stable releases. The `main` branch will contain a working version of lean4-cli for the most recent Lean 4 stable release.
