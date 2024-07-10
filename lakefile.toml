@@ -1,0 +1,5 @@
+name = "Cli"
+defaultTargets = ["Cli"]
+
+[[lean_lib]]
+name = "Cli"
