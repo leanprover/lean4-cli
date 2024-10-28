@@ -360,7 +360,7 @@ section Configuration
     -/
     structure Flag where
       /-- Associated flag meta-data. -/
-      flag  : Flag
+      flag  : Cli.Flag
       /-- Parsed value that was validated and conforms to `flag.type`. -/
       value : String
       deriving Inhabited, BEq, Repr
@@ -393,7 +393,7 @@ section Configuration
     -/
     structure Arg where
       /-- Associated argument meta-data. -/
-      arg   : Arg
+      arg   : Cli.Arg
       /-- Parsed value that was validated and conforms to `arg.type`. -/
       value : String
       deriving Inhabited, BEq, Repr
