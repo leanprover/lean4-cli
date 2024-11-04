@@ -256,7 +256,7 @@ section Configuration
     parse? s := do
       if s == ".lean" then
         none
-      let name := 
+      let name :=
         if s.endsWith ".lean" then
           let pathComponents := (s : FilePath).withExtension "" |>.components
           pathComponents.foldl .mkStr .anonymous
@@ -360,7 +360,7 @@ section Configuration
     -/
     structure Flag where
       /-- Associated flag meta-data. -/
-      flag  : Flag
+      flag  : Cli.Flag
       /-- Parsed value that was validated and conforms to `flag.type`. -/
       value : String
       deriving Inhabited, BEq, Repr
@@ -393,7 +393,7 @@ section Configuration
     -/
     structure Arg where
       /-- Associated argument meta-data. -/
-      arg   : Arg
+      arg   : Cli.Arg
       /-- Parsed value that was validated and conforms to `arg.type`. -/
       value : String
       deriving Inhabited, BEq, Repr
