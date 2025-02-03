@@ -1,4 +1,6 @@
 # lean4-cli
+This project is maintained by [@mhuisi](https://github.com/mhuisi).
+
 ## Usage
 See [the documentation of Lake](https://github.com/leanprover/lean4/blob/master/src/lake/README.md).
 
