@@ -135,7 +135,7 @@ section Extensions
           return parsed
         let requiredFlags := findRequiredFlags cmd
         let missingFlags := Array.diffBy (·.longName) requiredFlags <| parsed.flags.map (·.flag.longName)
-        if let some missingFlag ← pure <| missingFlags.get? 0 then
+        if let some missingFlag ← pure <| missingFlags[0]? then
           throw s!"Missing required flag `--{missingFlag.longName}`."
         return parsed
     }
