@@ -1325,8 +1325,8 @@ section Parsing
     private def parsedFlags          : ParseM (Array Parsed.Flag) := do return (← get).parsedFlags
     private def parsedPositionalArgs : ParseM (Array Parsed.Arg)  := do return (← get).parsedPositionalArgs
     private def parsedVariableArgs   : ParseM (Array Parsed.Arg)  := do return (← get).parsedVariableArgs
-    private def peek?                : ParseM (Option String)     := do return (← args).get? (← idx)
-    private def peekNext?            : ParseM (Option String)     := do return (← args).get? <| (← idx) + 1
+    private def peek?                : ParseM (Option String)     := do return (← args)[← idx]?
+    private def peekNext?            : ParseM (Option String)     := do return (← args)[(← idx) + 1]?
     private def flag? (inputFlag : InputFlag) : ParseM (Option Flag) := do
       if inputFlag.isShort then
         return (← cmd).meta.flagByShortName? inputFlag.name
@@ -1421,7 +1421,7 @@ section Parsing
               let some tail ← loop restContent newMatched
                 | return none
               return some <| #[(inputFlagName, ⟨flag, ""⟩)] ++ tail
-        return parsedFlagsCandidates.get? 0
+        return parsedFlagsCandidates[0]?
 
     private def readEqFlag? : ParseM (Option Parsed.Flag) := do
       let some (flagContent, isShort) ← readFlagContent?
