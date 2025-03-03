@@ -1556,7 +1556,7 @@ section Parsing
         if parsed.hasFlag "help" ∨ parsed.cmd.meta.hasVersion ∧ parsed.hasFlag "version" then
           return (← cmd, parsed)
         if (← parsedPositionalArgs).size < (← cmd).meta.positionalArgs.size then
-          throw <| ← parseError <| missingPositionalArg <| (← cmd).meta.positionalArgs.get! (← parsedPositionalArgs).size
+          throw <| ← parseError <| missingPositionalArg <| (← cmd).meta.positionalArgs[(← parsedPositionalArgs).size]!
         return (← cmd, parsed)
   end ParseM
 
