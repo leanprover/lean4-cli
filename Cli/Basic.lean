@@ -1325,8 +1325,8 @@ section Parsing
     private def parsedFlags          : ParseM (Array Parsed.Flag) := do return (← get).parsedFlags
     private def parsedPositionalArgs : ParseM (Array Parsed.Arg)  := do return (← get).parsedPositionalArgs
     private def parsedVariableArgs   : ParseM (Array Parsed.Arg)  := do return (← get).parsedVariableArgs
-    private def peek?                : ParseM (Option String)     := do return (← args).get? (← idx)
-    private def peekNext?            : ParseM (Option String)     := do return (← args).get? <| (← idx) + 1
+    private def peek?                : ParseM (Option String)     := do return (← args)[← idx]?
+    private def peekNext?            : ParseM (Option String)     := do return (← args)[(← idx) + 1]?
     private def flag? (inputFlag : InputFlag) : ParseM (Option Flag) := do
       if inputFlag.isShort then
         return (← cmd).meta.flagByShortName? inputFlag.name
@@ -1421,7 +1421,7 @@ section Parsing
               let some tail ← loop restContent newMatched
                 | return none
               return some <| #[(inputFlagName, ⟨flag, ""⟩)] ++ tail
-        return parsedFlagsCandidates.get? 0
+        return parsedFlagsCandidates[0]?
 
     private def readEqFlag? : ParseM (Option Parsed.Flag) := do
       let some (flagContent, isShort) ← readFlagContent?
@@ -1460,12 +1460,11 @@ section Parsing
       let some (flagContent, true) ← readFlagContent?
         | return none
       let some flag :=
-          (← cmd).meta.flags.filter (¬ ·.isParamless)
+          ((← cmd).meta.flags.filter (¬ ·.isParamless)
             |>.filter               (·.hasShortName)
             |>.filter               (·.shortName!.isPrefixOf flagContent)
             |>.filter               (·.shortName!.length < flagContent.length)
-            |>.qsort                (·.shortName!.length > ·.shortName!.length)
-            |>.get? 0
+            |>.qsort                (·.shortName!.length > ·.shortName!.length))[0]?
         | return none
       let flagName  := flag.shortName!
       let flagValue := flagContent.drop flagName.length
@@ -1505,7 +1504,7 @@ section Parsing
     private def parsePositionalArg : ParseM Bool := do
       let some positionalArgValue ← peek?
         | return false
-      let some positionalArg := (← cmd).meta.positionalArgs.get? (← parsedPositionalArgs).size
+      let some positionalArg := (← cmd).meta.positionalArgs[(← parsedPositionalArgs).size]?
         | return false
       if ¬ positionalArg.type.isValid positionalArgValue then
         throw <| ← parseError <| invalidPositionalArgType positionalArg positionalArgValue
@@ -1557,7 +1556,7 @@ section Parsing
         if parsed.hasFlag "help" ∨ parsed.cmd.meta.hasVersion ∧ parsed.hasFlag "version" then
           return (← cmd, parsed)
         if (← parsedPositionalArgs).size < (← cmd).meta.positionalArgs.size then
-          throw <| ← parseError <| missingPositionalArg <| (← cmd).meta.positionalArgs.get! (← parsedPositionalArgs).size
+          throw <| ← parseError <| missingPositionalArg <| (← cmd).meta.positionalArgs[(← parsedPositionalArgs).size]!
         return (← cmd, parsed)
   end ParseM
 
