@@ -35,7 +35,7 @@ def exampleCmd : Cmd := `[Cli|
                                 "which be can used to reference Lean modules like `Init.Data.Array` " ++
                                 "or Lean files using a relative path like `Init/Data/Array.lean`."
     "set-paths" : Array String; "Declares a flag `--set-paths` " ++
-                                "that takes an argument of type `Array Nat`. " ++
+                                "that takes an argument of type `Array String`. " ++
                                 "Quotation marks allow the use of hyphens."
 
   ARGS:
@@ -154,7 +154,7 @@ FLAGS:
                                 or Lean files using a relative path like
                                 `Init/Data/Array.lean`.
     --set-paths : Array String  Declares a flag `--set-paths` that takes an
-                                argument of type `Array Nat`. Quotation marks
+                                argument of type `Array String`. Quotation marks
                                 allow the use of hyphens.
 
 ARGS:
