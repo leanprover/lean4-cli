@@ -515,13 +515,13 @@ section Configuration
   -/
   inductive Parsed.Cmd
     | init
-      (meta    : Cmd.Meta)
+      («meta»  : Cmd.Meta)
       (subCmds : Array Parsed.Cmd)
     deriving Inhabited
 
   namespace Parsed.Cmd
     /-- Meta of this command. -/
-    def meta    : Parsed.Cmd → Cmd.Meta         | init v _ => v
+    def «meta»  : Parsed.Cmd → Cmd.Meta         | init v _ => v
     /-- Subcommands. -/
     def subCmds : Parsed.Cmd → Array Parsed.Cmd | init _ v => v
 
@@ -602,7 +602,7 @@ section Configuration
   -/
   inductive ExtendableCmd
     | init
-      (meta              : Meta)
+      («meta»            : Meta)
       (run               : Parsed → IO UInt32)
       (subCmds           : Array ExtendableCmd)
       (originalFullName? : Option String)
@@ -610,7 +610,7 @@ section Configuration
 
   namespace ExtendableCmd
     /-- Non-recursive meta-data. -/
-    def         meta              : ExtendableCmd → Cmd.Meta             | init v _ _ _ => v
+    def         «meta»            : ExtendableCmd → Cmd.Meta             | init v _ _ _ => v
     /-- Handler to run when the command is called and flags/arguments have been successfully processed. -/
     def         run               : ExtendableCmd → (Parsed → IO UInt32) | init _ v _ _ => v
     /-- Subcommands. May be mutated by extensions. -/
@@ -619,17 +619,17 @@ section Configuration
 
     /--
     Updates the designated fields in `c`.
-    - `meta`:    Non-recursive meta-data.
+    - `«meta»`:  Non-recursive meta-data.
     - `run`:     Handler to run when the command is called and flags/arguments have been successfully processed.
     - `subCmds`: Subcommands.
     -/
     def update'
       (c       : ExtendableCmd)
-      (meta    : Cmd.Meta            := c.meta)
+      («meta»  : Cmd.Meta            := c.meta)
       (run     : Parsed → IO UInt32  := c.run)
       (subCmds : Array ExtendableCmd := c.subCmds)
       : ExtendableCmd :=
-        .init meta run subCmds c.originalFullName?
+        .init «meta» run subCmds c.originalFullName?
 
     /--
     Updates the designated fields in `c`.
@@ -661,26 +661,26 @@ section Configuration
 
     /--
     Creates a new `ExtendableCmd`. The resulting `ExtendableCmd` will not have an extension.
-    - `meta`:    Non-recursive meta-data.
+    - `«meta»`:  Non-recursive meta-data.
     - `run`:     Handler to run when the command is called and flags/arguments have been successfully processed.
     - `subCmds`: Subcommands.
     -/
     def mk'
-      (meta    : Cmd.Meta)
+      («meta»  : Cmd.Meta)
       (run     : Parsed → IO UInt32)
       (subCmds : Array ExtendableCmd := #[])
       : ExtendableCmd :=
-        .init meta run subCmds none
+        .init «meta» run subCmds none
 
     /--
     Creates a new `ExtendableCmd`. The resulting `ExtendableCmd` will not have an extension.
-    Adds a `-h, --help` and a `--version` flag if `meta` designates a version.
-    - `meta`:    Non-recursive meta-data.
+    Adds a `-h, --help` and a `--version` flag if `«meta»` designates a version.
+    - `«meta»`:  Non-recursive meta-data.
     - `run`:     Handler to run when the command is called and flags/arguments have been successfully processed.
     - `subCmds`: Subcommands.
     -/
     def mkWithHelpAndVersionFlags'
-      (meta    : Cmd.Meta)
+      («meta»  : Cmd.Meta)
       (run     : Parsed → IO UInt32)
       (subCmds : Array ExtendableCmd := #[])
       : ExtendableCmd :=
@@ -852,7 +852,7 @@ section Configuration
   -/
   inductive Cmd
     | init
-      (meta       : Meta)
+      («meta»     : Meta)
       (run        : Parsed → IO UInt32)
       (subCmds    : Array Cmd)
       (extension? : Option Extension)
@@ -860,7 +860,7 @@ section Configuration
 
   namespace Cmd
     /-- Non-recursive meta-data. -/
-    def meta       : Cmd → Cmd.Meta             | init v _ _ _ => v
+    def «meta»     : Cmd → Cmd.Meta             | init v _ _ _ => v
     /-- Handler to run when the command is called and flags/arguments have been successfully processed. -/
     def run        : Cmd → (Parsed → IO UInt32) | init _ v _ _ => v
     /-- Subcommands. -/
@@ -870,12 +870,12 @@ section Configuration
 
     private def update
       (c          : Cmd)
-      (meta       : Meta               := c.meta)
+      («meta»     : Meta               := c.meta)
       (run        : Parsed → IO UInt32 := c.run)
       (subCmds    : Array Cmd          := c.subCmds)
       (extension? : Option Extension   := c.extension?)
       : Cmd :=
-        .init meta run subCmds extension?
+        .init «meta» run subCmds extension?
 
     /-- Recomputes all the parent names of subcommands in `c` with `c` as the root command. -/
     partial def updateParentNames (c : Cmd) : Cmd :=
@@ -887,21 +887,21 @@ section Configuration
         .init { c.meta with parentNames := parentNames } c.run subCmds c.extension?
 
     /--
-    Creates a new command. Adds a `-h, --help` and a `--version` flag if `meta` designates a version.
+    Creates a new command. Adds a `-h, --help` and a `--version` flag if `«meta»` designates a version.
     Updates the `parentNames` of all subcommands.
-    - `meta`:       Non-recursive meta-data.
+    - `«meta»`:     Non-recursive meta-data.
     - `run`:        Handler to run when the command is called and flags/arguments have been successfully processed.
     - `subCmds`:    Subcommands.
     - `extension?`: Extension of the Cli library.
     -/
     partial def mk'
-      (meta       : Meta)
+      («meta»     : Meta)
       (run        : Parsed → IO UInt32)
       (subCmds    : Array Cmd        := #[])
       (extension? : Option Extension := none)
       : Cmd :=
-        let meta := meta.addHelpAndVersionFlags
-        let c := .init meta run subCmds extension?
+        let «meta» := meta.addHelpAndVersionFlags
+        let c := .init «meta» run subCmds extension?
         updateParentNames c
 
     /--
@@ -950,17 +950,17 @@ section Configuration
 
   namespace Parsed
     namespace Cmd
-      /-- Extracts `meta` and the recursive subcommand structure from `c` to create a `Parsed.Cmd`. -/
+      /-- Extracts `«meta»` and the recursive subcommand structure from `c` to create a `Parsed.Cmd`. -/
       partial def ofFullCmd (c : Cli.Cmd) : Cmd :=
         .init c.meta (c.subCmds.map ofFullCmd)
 
       /-- Embeds `c` into a `Cli.Cmd` that does nothing. -/
       partial def toFullCmd (c : Cmd) : Cli.Cmd :=
-        let meta       := c.meta
+        let «meta»     := c.meta
         let run        := fun _ => pure 0
         let subCmds    := c.subCmds.map toFullCmd
         let extension? := { : Extension }
-        .init meta run subCmds extension?
+        .init «meta» run subCmds extension?
     end Cmd
 
     /-- Embeds `p.cmd` into a `Cli.Cmd` that does nothing. -/
@@ -992,9 +992,9 @@ section Configuration
         return extensions
       prependOriginalParentNames (currentCmd : Cli.Cmd) : Cli.Cmd := Id.run do
         let parentNames := original.meta.parentNames ++ currentCmd.meta.parentNames
-        let meta := { currentCmd.meta with parentNames := parentNames }
+        let «meta» := { currentCmd.meta with parentNames := parentNames }
         let subCmds := currentCmd.subCmds.map prependOriginalParentNames
-        currentCmd.update (meta := meta) (subCmds := subCmds)
+        currentCmd.update («meta» := «meta») (subCmds := subCmds)
 
     /-- Converts `c` back into `Cli.Cmd` while retaining none of the extensions. -/
     partial def toFullCmdWithoutExtensions (c : ExtendableCmd) : Cli.Cmd :=
