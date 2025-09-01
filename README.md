@@ -12,8 +12,8 @@ open Cli
 
 def installCmd := `[Cli|
   installCmd NOOP;
-  "installCmd provides an example for a subcommand without flags or arguments that does nothing. " ++
-  "Versions can be omitted."
+  "installCmd provides an example for a subcommand without flags or arguments that does nothing. \
+   Versions can be omitted."
 ]
 
 def testCmd := `[Cli|
@@ -29,20 +29,20 @@ def exampleCmd : Cmd := `[Cli|
     verbose;                    "Declares a flag `--verbose`. This is the description of the flag."
     i, invert;                  "Declares a flag `--invert` with an associated short alias `-i`."
     o, optimize;                "Declares a flag `--optimize` with an associated short alias `-o`."
-    p, priority : Nat;          "Declares a flag `--priority` with an associated short alias `-p` " ++
-                                "that takes an argument of type `Nat`."
-    module : ModuleName;        "Declares a flag `--module` that takes an argument of type `ModuleName` " ++
-                                "which be can used to reference Lean modules like `Init.Data.Array` " ++
-                                "or Lean files using a relative path like `Init/Data/Array.lean`."
-    "set-paths" : Array String; "Declares a flag `--set-paths` " ++
-                                "that takes an argument of type `Array String`. " ++
-                                "Quotation marks allow the use of hyphens."
+    p, priority : Nat;          "Declares a flag `--priority` with an associated short alias `-p` \
+                                 that takes an argument of type `Nat`."
+    module : ModuleName;        "Declares a flag `--module` that takes an argument of type `ModuleName` \
+                                 which can be used to reference Lean modules like `Init.Data.Array` \
+                                 or Lean files using a relative path like `Init/Data/Array.lean`."
+    "set-paths" : Array String; "Declares a flag `--set-paths` \
+                                 that takes an argument of type `Array Nat`. \
+                                 Quotation marks allow the use of hyphens."
 
   ARGS:
-    input : String;      "Declares a positional argument <input> " ++
-                         "that takes an argument of type `String`."
-    ...outputs : String; "Declares a variable argument <output>... " ++
-                         "that takes an arbitrary amount of arguments of type `String`."
+    input : String;      "Declares a positional argument <input> \
+                          that takes an argument of type `String`."
+    ...outputs : String; "Declares a variable argument <output>... \
+                          that takes an arbitrary amount of arguments of type `String`."
 
   SUBCOMMANDS:
     installCmd;
@@ -176,23 +176,27 @@ The full example can be found under `./Cli/Example.lean`.
 This section documents only the most common features of the library. For the full documentation, peek into `./Cli/Basic.lean` and `./Cli/Extensions.lean`! All definitions below live in the `Cli` namespace.
 
 ```Lean
--- In a literalIdent, identifiers are expanded as `String`s.
-syntax literalIdent := term
+-- In a `nameableStringArg`, string literals can either be used directly or an identifier can be
+-- supplied that references a string value.
+syntax nameableStringArg := str <|> ident
 
-syntax runFun := (" VIA " term) <|> " NOOP"
+-- In a `literalIdent`, identifiers are expanded as `String`s.
+syntax literalIdent := str <|> ident
 
-syntax positionalArg := colGe literalIdent " : " term "; " term
+syntax runFun := (" VIA " ident) <|> " NOOP"
 
-syntax variableArg := colGe "..." literalIdent " : " term "; " term
+syntax positionalArg := colGe literalIdent " : " term "; " nameableStringArg
 
-syntax flag := colGe literalIdent ("," literalIdent)? (" : " term)? "; " term
+syntax variableArg := colGe "..." literalIdent " : " term "; " nameableStringArg
+
+syntax flag := colGe literalIdent ("," literalIdent)? (" : " term)? "; " nameableStringArg
 
 syntax "`[Cli|\n"
-    literalIdent runFun "; " ("[" term "]")?
-    term
+    literalIdent runFun "; " ("[" nameableStringArg "]")?
+    nameableStringArg
     ("FLAGS:\n" withPosition((flag)*))?
     ("ARGS:\n" withPosition((positionalArg)* (variableArg)?))?
-    ("SUBCOMMANDS: " sepBy(term, ";", "; "))?
+    ("SUBCOMMANDS: " sepBy(ident, ";", "; "))?
     ("EXTENSIONS: " sepBy(term, ";", "; "))?
   "\n]" : term
 ```

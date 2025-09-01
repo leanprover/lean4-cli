@@ -28,8 +28,8 @@ def runExampleCmd (p : Parsed) : IO UInt32 := do
 
 def installCmd := `[Cli|
   installCmd NOOP;
-  "installCmd provides an example for a subcommand without flags or arguments that does nothing. " ++
-  "Versions can be omitted."
+  "installCmd provides an example for a subcommand without flags or arguments that does nothing. \
+   Versions can be omitted."
 ]
 
 def testCmd := `[Cli|
@@ -45,20 +45,20 @@ def exampleCmd : Cmd := `[Cli|
     verbose;                    "Declares a flag `--verbose`. This is the description of the flag."
     i, invert;                  "Declares a flag `--invert` with an associated short alias `-i`."
     o, optimize;                "Declares a flag `--optimize` with an associated short alias `-o`."
-    p, priority : Nat;          "Declares a flag `--priority` with an associated short alias `-p` " ++
-                                "that takes an argument of type `Nat`."
-    module : ModuleName;        "Declares a flag `--module` that takes an argument of type `ModuleName` " ++
-                                "which can be used to reference Lean modules like `Init.Data.Array` " ++
-                                "or Lean files using a relative path like `Init/Data/Array.lean`."
-    "set-paths" : Array String; "Declares a flag `--set-paths` " ++
-                                "that takes an argument of type `Array Nat`. " ++
-                                "Quotation marks allow the use of hyphens."
+    p, priority : Nat;          "Declares a flag `--priority` with an associated short alias `-p` \
+                                 that takes an argument of type `Nat`."
+    module : ModuleName;        "Declares a flag `--module` that takes an argument of type `ModuleName` \
+                                 which can be used to reference Lean modules like `Init.Data.Array` \
+                                 or Lean files using a relative path like `Init/Data/Array.lean`."
+    "set-paths" : Array String; "Declares a flag `--set-paths` \
+                                 that takes an argument of type `Array Nat`. \
+                                 Quotation marks allow the use of hyphens."
 
   ARGS:
-    input : String;      "Declares a positional argument <input> " ++
-                         "that takes an argument of type `String`."
-    ...outputs : String; "Declares a variable argument <output>... " ++
-                         "that takes an arbitrary amount of arguments of type `String`."
+    input : String;      "Declares a positional argument <input> \
+                          that takes an argument of type `String`."
+    ...outputs : String; "Declares a variable argument <output>... \
+                          that takes an arbitrary amount of arguments of type `String`."
 
   SUBCOMMANDS:
     installCmd;
