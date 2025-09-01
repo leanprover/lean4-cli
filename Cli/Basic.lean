@@ -1006,31 +1006,36 @@ end Configuration
 section Macro
   open Lean
 
-  syntax literalIdent := term
+  syntax nameableStringArg := str <|> ident
 
-  syntax runFun := (" VIA " term) <|> " NOOP"
+  syntax literalIdent := str <|> ident
 
-  syntax positionalArg := colGe literalIdent " : " term "; " term
+  syntax runFun := (" VIA " ident) <|> " NOOP"
 
-  syntax variableArg := colGe "..." literalIdent " : " term "; " term
+  syntax positionalArg := colGe literalIdent " : " term "; " nameableStringArg
 
-  syntax flag := colGe literalIdent ("," literalIdent)? (" : " term)? "; " term
+  syntax variableArg := colGe "..." literalIdent " : " term "; " nameableStringArg
+
+  syntax flag := colGe literalIdent ("," literalIdent)? (" : " term)? "; " nameableStringArg
 
   syntax "`[Cli|\n"
-      literalIdent runFun "; " ("[" term "]")?
-      term
+      literalIdent runFun "; " ("[" nameableStringArg "]")?
+      nameableStringArg
       ("FLAGS:\n" withPosition((flag)*))?
       ("ARGS:\n" withPosition((positionalArg)* (variableArg)?))?
-      ("SUBCOMMANDS: " sepBy(term, ";", "; "))?
+      ("SUBCOMMANDS: " sepBy(ident, ";", "; "))?
       ("EXTENSIONS: " sepBy(term, ";", "; "))?
     "\n]" : term
 
-  def expandIdentLiterally (t : Term) : Term :=
-    match t with
-    | `($i:ident) =>
-      quote i.getId.toString
-    | `($t:term) =>
-      t
+  def expandNameableStringArg (t : TSyntax `Cli.nameableStringArg) : MacroM Term :=
+    pure ⟨t.raw[0]⟩
+
+  def expandLiteralIdent (t : TSyntax `Cli.literalIdent) : MacroM Term :=
+    let s := t.raw[0]
+    if s.getKind == identKind then
+      pure <| quote s.getId.toString
+    else
+      pure ⟨s⟩
 
   def expandRunFun (runFun : TSyntax `Cli.runFun) : MacroM Term :=
     match runFun with
@@ -1041,33 +1046,33 @@ section Macro
     | _ => Macro.throwUnsupported
 
   def expandPositionalArg (positionalArg : TSyntax `Cli.positionalArg) : MacroM Term := do
-    let `(Cli.positionalArg| $name:term : $type; $description) := positionalArg
+    let `(Cli.positionalArg| $name : $type; $description) := positionalArg
       | Macro.throwUnsupported
-    `(Arg.mk $(expandIdentLiterally name) $description $type)
+    `(Arg.mk $(← expandLiteralIdent name) $(← expandNameableStringArg description) $type)
 
   def expandVariableArg (variableArg : TSyntax `Cli.variableArg) : MacroM Term := do
-    let `(Cli.variableArg| ...$name:term : $type; $description) := variableArg
+    let `(Cli.variableArg| ...$name : $type; $description) := variableArg
       | Macro.throwUnsupported
-    `(Arg.mk $(expandIdentLiterally name) $description $type)
+    `(Arg.mk $(← expandLiteralIdent name) $(← expandNameableStringArg description) $type)
 
   def expandFlag (flag : TSyntax `Cli.flag) : MacroM Term := do
-    let `(Cli.flag| $flagName1:term $[, $flagName2:term]? $[ : $type]?; $description) := flag
+    let `(Cli.flag| $flagName1 $[, $flagName2]? $[ : $type]?; $description) := flag
       | Macro.throwUnsupported
     let mut shortName := quote (none : Option String)
     let mut longName := flagName1
     if let some flagName2 := flagName2 then
-      shortName ← `(some $(expandIdentLiterally flagName1))
+      shortName ← `(some $(← expandLiteralIdent flagName1))
       longName := flagName2
     let unitType : Term ← `(Unit)
     let type :=
       match type with
       | none => unitType
       | some type => type
-    `(Flag.mk $shortName $(expandIdentLiterally longName) $description $type)
+    `(Flag.mk $shortName $(← expandLiteralIdent longName) $(← expandNameableStringArg description) $type)
 
   macro_rules
     | `(`[Cli|
-        $name:term $run:runFun; $[[$version]]?
+        $name $run:runFun; $[[$version?]]?
         $description
         $[FLAGS:
           $flags*
@@ -1080,14 +1085,14 @@ section Macro
         $[EXTENSIONS: $extensions;*]?
       ]) => do
         `(Cmd.mk
-          (name           := $(expandIdentLiterally name))
-          (version?       := $(quote version))
-          (description    := $description)
+          (name           := $(← expandLiteralIdent name))
+          (version?       := $(quote (← version?.mapM expandNameableStringArg)))
+          (description    := $(← expandNameableStringArg description))
           (flags          := $(quote (← flags.getD #[] |>.mapM expandFlag)))
           (positionalArgs := $(quote (← positionalArgs.getD #[] |>.mapM expandPositionalArg)))
           (variableArg?   := $(quote (← (Option.join variableArg).mapM expandVariableArg)))
           (run            := $(← expandRunFun run))
-          (subCmds        := $(quote (subCommands.getD ⟨#[]⟩).getElems))
+          (subCmds        := $(quote ((subCommands.getD ⟨#[]⟩).getElems : TSyntaxArray `term)))
           (extension?     := some <| Array.foldl Extension.then { : Extension } <| Array.qsort
             $(quote (extensions.getD ⟨#[]⟩).getElems) (·.priority > ·.priority)))
 end Macro
