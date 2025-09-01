@@ -19,3 +19,5 @@ jobs:
           echo "$HOME/.elan/bin" >> $GITHUB_PATH
       - name: build lean4-cli
         run: lake build
+      - name: test lean4-cli
+        run: lake test
