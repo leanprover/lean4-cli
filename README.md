@@ -170,7 +170,7 @@ SUBCOMMANDS:
                 or arguments that does nothing.
 ```
 
-The full example can be found under `./Cli/Example.lean`.
+The full example can be found under `./CliTest/Example.lean`.
 
 ## Ad Hoc Documentation
 This section documents only the most common features of the library. For the full documentation, peek into `./Cli/Basic.lean` and `./Cli/Extensions.lean`! All definitions below live in the `Cli` namespace.

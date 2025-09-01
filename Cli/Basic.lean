@@ -1,4 +1,4 @@
-import Lean.Data.RBTree
+import Std.Data.TreeSet
 
 namespace Cli
 
@@ -976,11 +976,11 @@ section Configuration
     /-- Converts `c` back into a `Cli.Cmd`, using the extensions denoted in `original`. -/
     partial def toFullCmd (c : ExtendableCmd) (original : Cli.Cmd) : Cli.Cmd := Id.run do
       let extensions := collectExtensions original
-      let mut extensionIndex := Lean.mkRBMap String (Option Extension) compare
+      let mut extensionIndex : Std.TreeMap String (Option Extension) := ∅
       for ⟨fullName, extension?⟩ in extensions do
         extensionIndex := extensionIndex.insert fullName extension?
       let rec loop (c : ExtendableCmd) : Cli.Cmd :=
-        let extension? := do extensionIndex.find? (← c.originalFullName?) |> Option.join
+        let extension? := do extensionIndex.get? (← c.originalFullName?) |> Option.join
         let subCmds := c.subCmds.map loop
         .init c.meta c.run subCmds extension?
       loop c |>.updateParentNames |> prependOriginalParentNames
@@ -1399,14 +1399,14 @@ section Parsing
     private partial def readMultiFlag? : ParseM (Option (Array Parsed.Flag)) := do
       let some (flagContent, true) ← readFlagContent?
         | return none
-      let some (parsedFlags : Array (String × Parsed.Flag)) ← loop flagContent Lean.RBTree.empty
+      let some (parsedFlags : Array (String × Parsed.Flag)) ← loop flagContent ∅
         | return none
       for (inputFlagName, parsedFlag) in parsedFlags do
         ensureFlagUnique parsedFlag.flag ⟨inputFlagName, true⟩
       skip
       return some <| parsedFlags.map (·.2)
     where
-      loop (flagContent : String) (matched : Lean.RBTree String compare)
+      loop (flagContent : String) (matched : Std.TreeSet String compare)
         : ParseM (Option (Array (String × Parsed.Flag))) := do
         -- this is not tail recursive, but that's fine: `loop` will only recurse further if the corresponding
         -- flag has not been matched yet, meaning that this can only overflow if the application has an
