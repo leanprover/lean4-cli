@@ -1,8 +1,6 @@
 module
 
-public import Std.Data.TreeSet
-public import Init.Data.ToString.Name
-public import Init.Data.Option.Basic
+import Std.Data.TreeSet
 
 public section
 
