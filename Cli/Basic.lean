@@ -14,17 +14,6 @@ section Utils
     else
       (a, b ++ .replicate (a.length - b.length) unit)
 
-  namespace Array
-    def join (xss : Array (Array α)) : Array α := Id.run do
-      let mut r := #[]
-      for xs in xss do
-        r := r ++ xs
-      return r
-
-    def flatMap (f : α → Array β) (xs : Array α) : Array β :=
-      join (xs.map f)
-  end Array
-
   namespace String
     /--
     Inserts newlines `\n` into `s` after every `maxWidth` characters so that the result
@@ -150,13 +139,13 @@ section Utils
       let rows : Array (List String × String) := rows.map fun (left, right) =>
         (maxWidth - margin - minRightColumnWidth |> String.wrapWordsAt! left |>.splitOn "\n", right)
       let leftColumnWidth :=
-        flatMap (·.1.map (·.length) |>.toArray) rows
+        rows.flatMap (·.1.map (·.length) |>.toArray)
           |>.getMax? (· < ·)
           |>.get!
       let leftColumnWidth := leftColumnWidth + margin
       let rows : Array (List String × List String) := rows.map fun (left, right) =>
         (left, maxWidth - leftColumnWidth |> String.wrapWordsAt! right |>.splitOn "\n")
-      let rows : Array (String × String) := flatMap (xs := rows) fun (left, right) =>
+      let rows : Array (String × String) := rows.flatMap fun (left, right) =>
         let (left, right) : List String × List String := List.matchLength left right ""
         left.zip right |>.toArray
       let rows : Array String := rows.map fun (left, right) =>
