@@ -1,12 +1,12 @@
 module
 
-import Std.Data.TreeSet
+public import Std.Data.TreeSet
 
 public section
 
 namespace Cli
 
-section Utils
+public section Utils
   /--
   Matches the lengths of lists `a` and `b` by filling the shorter one with
   `unit` elements at the tail end. The matched lists are returned in the same order
