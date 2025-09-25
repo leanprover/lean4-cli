@@ -1,4 +1,8 @@
-import Cli.Basic
+module
+
+public import Cli.Basic
+
+@[expose] public section
 
 namespace Cli
 

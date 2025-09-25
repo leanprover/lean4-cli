@@ -1,4 +1,10 @@
-import Std.Data.TreeSet
+module
+
+public import Std.Data.TreeSet
+public import Init.Data.ToString.Name
+public import Init.Data.Option.Basic
+
+public section
 
 namespace Cli
 
@@ -180,8 +186,6 @@ section Utils
   end Array
 
   namespace Option
-    def join (x : Option (Option α)) : Option α := do ←x
-
     /--
     Returns `""` if the passed `Option` is `none`, otherwise
     converts the contained value using a `ToString` instance.
@@ -235,7 +239,7 @@ section Configuration
   /-- A type synonym for `Name`, which will carry a `ParseableType ModuleName`
   instance, supporting parsing either a module name (e.g. `Mathlib.Topology.Basic`)
   or a relative path to a Lean file (e.g. `Mathlib/Topology/Basic.lean`). -/
-  def ModuleName := Lean.Name
+  @[expose] def ModuleName := Lean.Name
     deriving Inhabited, BEq, Repr, ToString
 
   /-- Check that a `ModuleName` has no `.num` or empty components, and is not `.anonymous`. -/
@@ -1027,17 +1031,17 @@ section Macro
       ("EXTENSIONS: " sepBy(term, ";", "; "))?
     "\n]" : term
 
-  def expandNameableStringArg (t : TSyntax `Cli.nameableStringArg) : MacroM Term :=
+  meta def expandNameableStringArg (t : TSyntax `Cli.nameableStringArg) : MacroM Term :=
     pure ⟨t.raw[0]⟩
 
-  def expandLiteralIdent (t : TSyntax `Cli.literalIdent) : MacroM Term :=
+  meta def expandLiteralIdent (t : TSyntax `Cli.literalIdent) : MacroM Term :=
     let s := t.raw[0]
     if s.getKind == identKind then
       pure <| quote s.getId.toString
     else
       pure ⟨s⟩
 
-  def expandRunFun (runFun : TSyntax `Cli.runFun) : MacroM Term :=
+  meta def expandRunFun (runFun : TSyntax `Cli.runFun) : MacroM Term :=
     match runFun with
     | `(Cli.runFun| VIA $run) =>
       `($run)
@@ -1045,17 +1049,17 @@ section Macro
       `(fun _ => pure 0)
     | _ => Macro.throwUnsupported
 
-  def expandPositionalArg (positionalArg : TSyntax `Cli.positionalArg) : MacroM Term := do
+  meta def expandPositionalArg (positionalArg : TSyntax `Cli.positionalArg) : MacroM Term := do
     let `(Cli.positionalArg| $name : $type; $description) := positionalArg
       | Macro.throwUnsupported
     `(Arg.mk $(← expandLiteralIdent name) $(← expandNameableStringArg description) $type)
 
-  def expandVariableArg (variableArg : TSyntax `Cli.variableArg) : MacroM Term := do
+  meta def expandVariableArg (variableArg : TSyntax `Cli.variableArg) : MacroM Term := do
     let `(Cli.variableArg| ...$name : $type; $description) := variableArg
       | Macro.throwUnsupported
     `(Arg.mk $(← expandLiteralIdent name) $(← expandNameableStringArg description) $type)
 
-  def expandFlag (flag : TSyntax `Cli.flag) : MacroM Term := do
+  meta def expandFlag (flag : TSyntax `Cli.flag) : MacroM Term := do
     let `(Cli.flag| $flagName1 $[, $flagName2]? $[ : $type]?; $description) := flag
       | Macro.throwUnsupported
     let mut shortName := quote (none : Option String)
