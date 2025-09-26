@@ -1,2 +1,4 @@
-import Cli.Basic
-import Cli.Extensions
+module
+
+public import Cli.Basic
+public import Cli.Extensions
