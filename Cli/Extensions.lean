@@ -8,7 +8,7 @@ section
 
 namespace Cli
 
-section Utils
+public section Utils
   namespace Array
     /--
     Appends those elements of `right` to `left` whose `key` is not already
