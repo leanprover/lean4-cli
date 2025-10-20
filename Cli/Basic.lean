@@ -88,7 +88,7 @@ section Utils
         wordWrappedLines.map trimTrailingSpaces |>.map fun line => Id.run do
           if line = "" then
             return ""
-          if line.get! 0 ≠ '\n' then
+          if String.Pos.Raw.get! line 0 ≠ '\n' then
             return line
           return line.drop 1
       return "\n".intercalate trimmed
