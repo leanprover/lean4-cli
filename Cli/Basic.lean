@@ -1,4 +1,4 @@
-import Lean.Data.RBTree
+import Std.Data.TreeSet
 
 namespace Cli
 
@@ -13,17 +13,6 @@ section Utils
       (a ++ .replicate (b.length - a.length) unit, b)
     else
       (a, b ++ .replicate (a.length - b.length) unit)
-
-  namespace Array
-    def join (xss : Array (Array α)) : Array α := Id.run do
-      let mut r := #[]
-      for xs in xss do
-        r := r ++ xs
-      return r
-
-    def flatMap (f : α → Array β) (xs : Array α) : Array β :=
-      join (xs.map f)
-  end Array
 
   namespace String
     /--
@@ -150,13 +139,13 @@ section Utils
       let rows : Array (List String × String) := rows.map fun (left, right) =>
         (maxWidth - margin - minRightColumnWidth |> String.wrapWordsAt! left |>.splitOn "\n", right)
       let leftColumnWidth :=
-        flatMap (·.1.map (·.length) |>.toArray) rows
+        rows.flatMap (·.1.map (·.length) |>.toArray)
           |>.getMax? (· < ·)
           |>.get!
       let leftColumnWidth := leftColumnWidth + margin
       let rows : Array (List String × List String) := rows.map fun (left, right) =>
         (left, maxWidth - leftColumnWidth |> String.wrapWordsAt! right |>.splitOn "\n")
-      let rows : Array (String × String) := flatMap (xs := rows) fun (left, right) =>
+      let rows : Array (String × String) := rows.flatMap fun (left, right) =>
         let (left, right) : List String × List String := List.matchLength left right ""
         left.zip right |>.toArray
       let rows : Array String := rows.map fun (left, right) =>
@@ -976,11 +965,11 @@ section Configuration
     /-- Converts `c` back into a `Cli.Cmd`, using the extensions denoted in `original`. -/
     partial def toFullCmd (c : ExtendableCmd) (original : Cli.Cmd) : Cli.Cmd := Id.run do
       let extensions := collectExtensions original
-      let mut extensionIndex := Lean.mkRBMap String (Option Extension) compare
+      let mut extensionIndex : Std.TreeMap String (Option Extension) := ∅
       for ⟨fullName, extension?⟩ in extensions do
         extensionIndex := extensionIndex.insert fullName extension?
       let rec loop (c : ExtendableCmd) : Cli.Cmd :=
-        let extension? := do extensionIndex.find? (← c.originalFullName?) |> Option.join
+        let extension? := do extensionIndex.get? (← c.originalFullName?) |> Option.join
         let subCmds := c.subCmds.map loop
         .init c.meta c.run subCmds extension?
       loop c |>.updateParentNames |> prependOriginalParentNames
@@ -1006,31 +995,36 @@ end Configuration
 section Macro
   open Lean
 
-  syntax literalIdent := term
+  syntax nameableStringArg := str <|> ident
 
-  syntax runFun := (" VIA " term) <|> " NOOP"
+  syntax literalIdent := str <|> ident
 
-  syntax positionalArg := colGe literalIdent " : " term "; " term
+  syntax runFun := (" VIA " ident) <|> " NOOP"
 
-  syntax variableArg := colGe "..." literalIdent " : " term "; " term
+  syntax positionalArg := colGe literalIdent " : " term "; " nameableStringArg
 
-  syntax flag := colGe literalIdent ("," literalIdent)? (" : " term)? "; " term
+  syntax variableArg := colGe "..." literalIdent " : " term "; " nameableStringArg
+
+  syntax flag := colGe literalIdent ("," literalIdent)? (" : " term)? "; " nameableStringArg
 
   syntax "`[Cli|\n"
-      literalIdent runFun "; " ("[" term "]")?
-      term
+      literalIdent runFun "; " ("[" nameableStringArg "]")?
+      nameableStringArg
       ("FLAGS:\n" withPosition((flag)*))?
       ("ARGS:\n" withPosition((positionalArg)* (variableArg)?))?
-      ("SUBCOMMANDS: " sepBy(term, ";", "; "))?
+      ("SUBCOMMANDS: " sepBy(ident, ";", "; "))?
       ("EXTENSIONS: " sepBy(term, ";", "; "))?
     "\n]" : term
 
-  def expandIdentLiterally (t : Term) : Term :=
-    match t with
-    | `($i:ident) =>
-      quote i.getId.toString
-    | `($t:term) =>
-      t
+  def expandNameableStringArg (t : TSyntax `Cli.nameableStringArg) : MacroM Term :=
+    pure ⟨t.raw[0]⟩
+
+  def expandLiteralIdent (t : TSyntax `Cli.literalIdent) : MacroM Term :=
+    let s := t.raw[0]
+    if s.getKind == identKind then
+      pure <| quote s.getId.toString
+    else
+      pure ⟨s⟩
 
   def expandRunFun (runFun : TSyntax `Cli.runFun) : MacroM Term :=
     match runFun with
@@ -1041,33 +1035,33 @@ section Macro
     | _ => Macro.throwUnsupported
 
   def expandPositionalArg (positionalArg : TSyntax `Cli.positionalArg) : MacroM Term := do
-    let `(Cli.positionalArg| $name:term : $type; $description) := positionalArg
+    let `(Cli.positionalArg| $name : $type; $description) := positionalArg
       | Macro.throwUnsupported
-    `(Arg.mk $(expandIdentLiterally name) $description $type)
+    `(Arg.mk $(← expandLiteralIdent name) $(← expandNameableStringArg description) $type)
 
   def expandVariableArg (variableArg : TSyntax `Cli.variableArg) : MacroM Term := do
-    let `(Cli.variableArg| ...$name:term : $type; $description) := variableArg
+    let `(Cli.variableArg| ...$name : $type; $description) := variableArg
       | Macro.throwUnsupported
-    `(Arg.mk $(expandIdentLiterally name) $description $type)
+    `(Arg.mk $(← expandLiteralIdent name) $(← expandNameableStringArg description) $type)
 
   def expandFlag (flag : TSyntax `Cli.flag) : MacroM Term := do
-    let `(Cli.flag| $flagName1:term $[, $flagName2:term]? $[ : $type]?; $description) := flag
+    let `(Cli.flag| $flagName1 $[, $flagName2]? $[ : $type]?; $description) := flag
       | Macro.throwUnsupported
     let mut shortName := quote (none : Option String)
     let mut longName := flagName1
     if let some flagName2 := flagName2 then
-      shortName ← `(some $(expandIdentLiterally flagName1))
+      shortName ← `(some $(← expandLiteralIdent flagName1))
       longName := flagName2
     let unitType : Term ← `(Unit)
     let type :=
       match type with
       | none => unitType
       | some type => type
-    `(Flag.mk $shortName $(expandIdentLiterally longName) $description $type)
+    `(Flag.mk $shortName $(← expandLiteralIdent longName) $(← expandNameableStringArg description) $type)
 
   macro_rules
     | `(`[Cli|
-        $name:term $run:runFun; $[[$version]]?
+        $name $run:runFun; $[[$version?]]?
         $description
         $[FLAGS:
           $flags*
@@ -1080,14 +1074,14 @@ section Macro
         $[EXTENSIONS: $extensions;*]?
       ]) => do
         `(Cmd.mk
-          (name           := $(expandIdentLiterally name))
-          (version?       := $(quote version))
-          (description    := $description)
+          (name           := $(← expandLiteralIdent name))
+          (version?       := $(quote (← version?.mapM expandNameableStringArg)))
+          (description    := $(← expandNameableStringArg description))
           (flags          := $(quote (← flags.getD #[] |>.mapM expandFlag)))
           (positionalArgs := $(quote (← positionalArgs.getD #[] |>.mapM expandPositionalArg)))
           (variableArg?   := $(quote (← (Option.join variableArg).mapM expandVariableArg)))
           (run            := $(← expandRunFun run))
-          (subCmds        := $(quote (subCommands.getD ⟨#[]⟩).getElems))
+          (subCmds        := $(quote ((subCommands.getD ⟨#[]⟩).getElems : TSyntaxArray `term)))
           (extension?     := some <| Array.foldl Extension.then { : Extension } <| Array.qsort
             $(quote (extensions.getD ⟨#[]⟩).getElems) (·.priority > ·.priority)))
 end Macro
@@ -1394,14 +1388,14 @@ section Parsing
     private partial def readMultiFlag? : ParseM (Option (Array Parsed.Flag)) := do
       let some (flagContent, true) ← readFlagContent?
         | return none
-      let some (parsedFlags : Array (String × Parsed.Flag)) ← loop flagContent Lean.RBTree.empty
+      let some (parsedFlags : Array (String × Parsed.Flag)) ← loop flagContent ∅
         | return none
       for (inputFlagName, parsedFlag) in parsedFlags do
         ensureFlagUnique parsedFlag.flag ⟨inputFlagName, true⟩
       skip
       return some <| parsedFlags.map (·.2)
     where
-      loop (flagContent : String) (matched : Lean.RBTree String compare)
+      loop (flagContent : String) (matched : Std.TreeSet String compare)
         : ParseM (Option (Array (String × Parsed.Flag))) := do
         -- this is not tail recursive, but that's fine: `loop` will only recurse further if the corresponding
         -- flag has not been matched yet, meaning that this can only overflow if the application has an

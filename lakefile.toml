@@ -1,5 +1,10 @@
 name = "Cli"
 defaultTargets = ["Cli"]
+testDriver = "CliTest"
 
 [[lean_lib]]
 name = "Cli"
+
+[[lean_lib]]
+name = "CliTest"
+globs = ["CliTest.+"]
