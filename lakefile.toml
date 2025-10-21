@@ -2,6 +2,9 @@ name = "Cli"
 defaultTargets = ["Cli"]
 testDriver = "CliTest"
 
+[leanOptions]
+experimental.module = true
+
 [[lean_lib]]
 name = "Cli"
 

@@ -1,8 +1,14 @@
-import Cli.Basic
+module
+
+public import Cli.Basic
+public import Std.Data.TreeMap.Basic
+public import Std.Data.TreeSet.Basic
+
+section
 
 namespace Cli
 
-section Utils
+public section Utils
   namespace Array
     /--
     Appends those elements of `right` to `left` whose `key` is not already
@@ -38,7 +44,7 @@ section Utils
   end Array
 end Utils
 
-section Extensions
+public section Extensions
   /-- Prepends an author name to the description of the command. -/
   def author (author : String) : Extension := {
       extend := fun cmd => cmd.update (description := s!"{author}\n{cmd.description}")
