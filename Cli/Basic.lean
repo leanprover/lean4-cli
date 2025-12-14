@@ -33,12 +33,12 @@ section Utils
             line.length / maxWidth
           else
             line.length / maxWidth + 1
-        let mut line := line
+        let mut line := line.toSlice
         let mut result := #[]
         for _ in [:resultLineCount] do
           result := result.push <| line.take maxWidth
           line := line.drop maxWidth
-        return "\n".intercalate result.toList
+        return "\n".toSlice.intercalate result.toList
       return "\n".intercalate lines
 
     /--
@@ -53,7 +53,7 @@ section Utils
     Deletes all trailing spaces at the end of every line, as seperated by `\n`.
     -/
     def trimTrailingSpaces (s : String) : String :=
-      s.splitOn "\n" |>.map (·.dropRightWhile (· = ' ')) |> "\n".intercalate
+      s.splitOn "\n" |>.map (·.dropEndWhile ' ' |>.copy) |> "\n".intercalate
 
     /--
     Inserts newlines `\n` into `s` after every `maxWidth` characters before words
@@ -94,7 +94,7 @@ section Utils
             return ""
           if String.Pos.Raw.get! line 0 ≠ '\n' then
             return line
-          return line.drop 1
+          return line.drop 1 |>.copy
       return "\n".intercalate trimmed
 
     /--
@@ -1373,10 +1373,10 @@ section Parsing
         | return none
       if arg = "--" ∨ arg = "-" then
         return none
-      if arg.take 2 = "--" then
-        return (arg.drop 2, false)
-      if arg.take 1 = "-" then
-        return (arg.drop 1, true)
+      if arg.take 2 == "--".toSlice then
+        return (arg.drop 2 |>.copy, false)
+      if arg.take 1 == "-".toSlice then
+        return (arg.drop 1 |>.copy, true)
       return none
 
     private def ensureFlagUnique (flag : Flag) (inputFlag : InputFlag) : ParseM Unit := do
@@ -1414,9 +1414,9 @@ section Parsing
               let inputFlagName := flagContent.take flag.shortName!.length
               let restContent   := flagContent.drop flag.shortName!.length
               let newMatched    := matched.insert flag.shortName!
-              let some tail ← loop restContent newMatched
+              let some tail ← loop restContent.copy newMatched
                 | return none
-              return some <| #[(inputFlagName, ⟨flag, ""⟩)] ++ tail
+              return some <| #[(inputFlagName.copy, ⟨flag, ""⟩)] ++ tail
         return parsedFlagsCandidates[0]?
 
     private def readEqFlag? : ParseM (Option Parsed.Flag) := do
@@ -1466,9 +1466,9 @@ section Parsing
       let flagValue := flagContent.drop flagName.length
       let inputFlag : InputFlag := ⟨flagName, true⟩
       ensureFlagUnique flag inputFlag
-      ensureFlagWellTyped flag inputFlag flagValue
+      ensureFlagWellTyped flag inputFlag flagValue.copy
       skip
-      return some ⟨flag, flagValue⟩
+      return some ⟨flag, flagValue.copy⟩
 
     private def readParamlessFlag? : ParseM (Option Parsed.Flag) := do
       let some (flagName, isShort) ← readFlagContent?
