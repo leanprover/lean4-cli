@@ -26,17 +26,18 @@ def exampleCmd : Cmd := `[Cli|
   "This string denotes the description of `exampleCmd`."
 
   FLAGS:
-    verbose;                    "Declares a flag `--verbose`. This is the description of the flag."
-    i, invert;                  "Declares a flag `--invert` with an associated short alias `-i`."
-    o, optimize;                "Declares a flag `--optimize` with an associated short alias `-o`."
-    p, priority : Nat;          "Declares a flag `--priority` with an associated short alias `-p` \
-                                 that takes an argument of type `Nat`."
-    module : ModuleName;        "Declares a flag `--module` that takes an argument of type `ModuleName` \
-                                 which can be used to reference Lean modules like `Init.Data.Array` \
-                                 or Lean files using a relative path like `Init/Data/Array.lean`."
-    "set-paths" : Array String; "Declares a flag `--set-paths` \
-                                 that takes an argument of type `Array Nat`. \
-                                 Quotation marks allow the use of hyphens."
+    verbose;                        "Declares a flag `--verbose`. This is the description of the flag."
+    i, invert;                      "Declares a flag `--invert` with an associated short alias `-i`."
+    o, optimize;                    "Declares a flag `--optimize` with an associated short alias `-o`."
+    p, priority : Nat;              "Declares a flag `--priority` with an associated short alias `-p` \
+                                     that takes an argument of type `Nat`."
+    module : ModuleName;            "Declares a flag `--module` that takes an argument of type `ModuleName` \
+                                     which can be used to reference Lean modules like `Init.Data.Array` \
+                                     or Lean files using a relative path like `Init/Data/Array.lean`."
+    "set-paths" ... : Array String; "Declares a flag `--set-paths` \
+                                     that takes an argument of type `Array String`. \
+                                     The trailing `...` makes it repeatable: passing it \
+                                     multiple times accumulates the values."
 
   ARGS:
     input : String;      "Declares a positional argument <input> \
@@ -93,7 +94,7 @@ Below you can find some simple examples of how to pass user input to the Cli lib
 def main (args : List String) : IO UInt32 :=
   exampleCmd.validate args
 
-#eval main <| "-i -o -p 1 --module=Lean.Compiler --set-paths=path1,path2,path3 input output1 output2".splitOn " "
+#eval main <| "-i -o -p 1 --module=Lean.Compiler --set-paths=path1 --set-paths=path2,path3 input output1 output2".splitOn " "
 /-
 Yields:
   Input: input
@@ -137,25 +138,26 @@ USAGE:
     exampleCmd [SUBCOMMAND] [FLAGS] <input> <outputs>...
 
 FLAGS:
-    -h, --help                  Prints this message.
-    --version                   Prints the version.
-    --verbose                   Declares a flag `--verbose`. This is the
-                                description of the flag.
-    -i, --invert                Declares a flag `--invert` with an associated
-                                short alias `-i`.
-    -o, --optimize              Declares a flag `--optimize` with an associated
-                                short alias `-o`.
-    -p, --priority : Nat        Declares a flag `--priority` with an associated
-                                short alias `-p` that takes an argument of type
-                                `Nat`. [Default: `0`]
-    --module : ModuleName       Declares a flag `--module` that takes an
-                                argument of type `ModuleName` which can be used
-                                to reference Lean modules like `Init.Data.Array`
-                                or Lean files using a relative path like
-                                `Init/Data/Array.lean`.
-    --set-paths : Array String  Declares a flag `--set-paths` that takes an
-                                argument of type `Array String`. Quotation marks
-                                allow the use of hyphens.
+    -h, --help                      Prints this message.
+    --version                       Prints the version.
+    --verbose                       Declares a flag `--verbose`. This is the
+                                    description of the flag.
+    -i, --invert                    Declares a flag `--invert` with an
+                                    associated short alias `-i`.
+    -o, --optimize                  Declares a flag `--optimize` with an
+                                    associated short alias `-o`.
+    -p, --priority : Nat            Declares a flag `--priority` with an
+                                    associated short alias `-p` that takes an
+                                    argument of type `Nat`. [Default: `0`]
+    --module : ModuleName           Declares a flag `--module` that takes an
+                                    argument of type `ModuleName` which can be
+                                    used to reference Lean modules like
+                                    `Init.Data.Array` or Lean files using a
+                                    relative path like `Init/Data/Array.lean`.
+    --set-paths : Array String ...  Declares a flag `--set-paths` that takes an
+                                    argument of type `Array String`. The
+                                    trailing `...` makes it repeatable: passing
+                                    it multiple times accumulates the values.
 
 ARGS:
     input : String    Declares a positional argument <input> that takes an
@@ -189,7 +191,7 @@ syntax positionalArg := colGe literalIdent " : " term "; " nameableStringArg
 
 syntax variableArg := colGe "..." literalIdent " : " term "; " nameableStringArg
 
-syntax flag := colGe literalIdent ("," literalIdent)? (" : " term)? "; " nameableStringArg
+syntax flag := colGe literalIdent ("," literalIdent)? "..."? (" : " term)? "; " nameableStringArg
 
 syntax "`[Cli|\n"
     literalIdent runFun "; " ("[" nameableStringArg "]")?
