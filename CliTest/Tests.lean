@@ -94,6 +94,45 @@ def testCmd : Cmd := `[Cli|
     require! #["typed1"]
 ]
 
+def testRepeatedCmd : Cmd := `[Cli|
+  repeatedcommand VIA doNothing;
+  "tests repeatable flags"
+
+  FLAGS:
+    t, tag ... : Array String;  "a repeatable flag"
+    f, other;                   "a normal flag"
+]
+
+/--
+info: "cmd: repeatedcommand; flags: #[--tag=a]; positionalArgs: #[]; variableArgs: #[]"
+-/
+#guard_msgs in
+#eval testRepeatedCmd.processParsed "-t a"
+
+/--
+info: "repeatedcommand\ntests repeatable flags\n\nUSAGE:\n    repeatedcommand [FLAGS]\n\nFLAGS:\n    -h, --help                    Prints this message.\n    -t, --tag : Array String ...  a repeatable flag\n    -f, --other                   a normal flag"
+-/
+#guard_msgs in
+#eval testRepeatedCmd.help
+
+/--
+info: "cmd: repeatedcommand; flags: #[--tag=a,b,c]; positionalArgs: #[]; variableArgs: #[]"
+-/
+#guard_msgs in
+#eval testRepeatedCmd.processParsed "-t a -t b -t c"
+
+/--
+info: "cmd: repeatedcommand; flags: #[--tag=a,b,c]; positionalArgs: #[]; variableArgs: #[]"
+-/
+#guard_msgs in
+#eval testRepeatedCmd.processParsed "-t a,b -t c"
+
+/--
+info: "cmd: repeatedcommand; flags: #[--tag=a,b, --other]; positionalArgs: #[]; variableArgs: #[]"
+-/
+#guard_msgs in
+#eval testRepeatedCmd.processParsed "-t a -f -t b"
+
 section ValidInputs
 
 /--
