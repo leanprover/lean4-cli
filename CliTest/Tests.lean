@@ -1,5 +1,6 @@
 import Cli.Basic
 import Cli.Extensions
+import Cli.Typed
 
 namespace Cli
 
@@ -415,5 +416,504 @@ section InvalidInputs
 end InvalidInputs
 
 end ModuleName
+
+section CliDef
+
+-- Test cli_def VIA (backward-compatible mode)
+cli_def viaSubCmd VIA doNothing;
+  "a subcommand defined with cli_def VIA"
+
+-- Test cli_def NOOP
+cli_def noopSubCmd NOOP;
+  "a subcommand defined with cli_def NOOP"
+
+-- Test cli_def VIA with flags, args, extensions
+cli_def viaCmd VIA doNothing; ["1.0.0"]
+  "a command defined with cli_def VIA"
+
+  FLAGS:
+    verbose; "verbose flag"
+    n, count : Nat; "a typed flag"
+
+  ARGS:
+    input : String; "an input"
+
+  SUBCOMMANDS: viaSubCmd; noopSubCmd
+
+  EXTENSIONS:
+    defaultValues! #[("count", "0")]
+
+section ViaValidInputs
+
+/--
+info: "cmd: viaCmd; flags: #[--count=0]; positionalArgs: #[<input=hello>]; variableArgs: #[]"
+-/
+#guard_msgs in
+#eval viaCmd.processParsed "hello"
+
+/--
+info: "cmd: viaCmd; flags: #[--verbose, --count=5]; positionalArgs: #[<input=hello>]; variableArgs: #[]"
+-/
+#guard_msgs in
+#eval viaCmd.processParsed "--verbose -n5 hello"
+
+/--
+info: "cmd: viaCmd noopSubCmd; flags: #[]; positionalArgs: #[]; variableArgs: #[]"
+-/
+#guard_msgs in
+#eval viaCmd.processParsed "noopSubCmd"
+
+end ViaValidInputs
+
+section ViaInvalidInputs
+
+/-- info: "Missing positional argument `<input>.`" -/
+#guard_msgs in
+#eval viaCmd.processParsed ""
+
+end ViaInvalidInputs
+
+-- Test cli_def RUN: typed struct generation and accessor correctness
+
+-- A simple subcommand used by the typed command
+cli_def typedSubCmd NOOP;
+  "a subcommand for the typed command"
+
+-- The main typed command exercises all feature combinations:
+-- parameterless flags, typed flags, short aliases, hyphenated names,
+-- positional args, variable args, subcommands, and extensions.
+cli_def typedCmd; ["2.0.0"]
+  "a command defined with cli_def RUN"
+
+  FLAGS:
+    verbose;                     "verbose flag"
+    x, unknown1;                 "flag with short name"
+    t, typed1 : String;          "typed flag"
+    "p-n", "level-param" : Nat;  "hyphenated flag"
+
+  ARGS:
+    input1 : String;     "a string input"
+    input2 : Array Nat;  "an array input"
+    ...outputs : Nat;    "varargs"
+
+  SUBCOMMANDS: typedSubCmd
+
+  EXTENSIONS:
+    defaultValues! #[("level-param", "0")]
+
+  RUN fun p => do
+    -- Exercise every accessor to verify types are correct
+    IO.println <| "input1=" ++ p.input1
+    IO.println <| "input2=" ++ toString p.input2
+    IO.println <| "outputs=" ++ toString p.outputs
+    IO.println <| "verbose=" ++ toString p.verbose
+    IO.println <| "unknown1=" ++ toString p.unknown1
+    IO.println <| "typed1=" ++ toString p.typed1?
+    IO.println <| "levelParam=" ++ toString p.levelParam?
+    return 0
+
+section TypedStructExists
+
+-- Verify the Parsed struct exists and is Inhabited
+#check typedCmd.Parsed
+#check (inferInstance : Inhabited typedCmd.Parsed)
+
+-- Verify accessor types
+#check @typedCmd.Parsed.verbose   -- typedCmd.Parsed → Bool
+#check @typedCmd.Parsed.unknown1  -- typedCmd.Parsed → Bool
+#check @typedCmd.Parsed.typed1?    -- typedCmd.Parsed → Option String
+#check @typedCmd.Parsed.levelParam? -- typedCmd.Parsed → Option Nat
+#check @typedCmd.Parsed.input1    -- typedCmd.Parsed → String
+#check @typedCmd.Parsed.input2    -- typedCmd.Parsed → Array Nat
+#check @typedCmd.Parsed.outputs   -- typedCmd.Parsed → Array Nat
+#check @typedCmd.Parsed.raw       -- typedCmd.Parsed → Cli.Parsed
+
+end TypedStructExists
+
+section TypedValidInputs
+
+/--
+info: input1=foo
+input2=#[1, 2, 3]
+outputs=#[4, 5]
+verbose=true
+unknown1=false
+typed1=(some hello)
+levelParam=(some 7)
+---
+info: 0
+-/
+#guard_msgs in
+#eval typedCmd.validate <| "--verbose -t hello --level-param=7 foo 1,2,3 4 5".splitOn " "
+
+/--
+info: input1=foo
+input2=#[1]
+outputs=#[]
+verbose=false
+unknown1=true
+typed1=(some bar)
+levelParam=(some 0)
+---
+info: 0
+-/
+#guard_msgs in
+#eval typedCmd.validate <| "-x -tbar foo 1".splitOn " "
+
+/--
+info: input1=foo
+input2=#[1]
+outputs=#[]
+verbose=false
+unknown1=false
+typed1=none
+levelParam=(some 0)
+---
+info: 0
+-/
+#guard_msgs in
+#eval typedCmd.validate <| "foo 1".splitOn " "
+
+end TypedValidInputs
+
+section TypedParsing
+
+-- Verify that the typed command produces the same parse results as a
+-- manually-defined equivalent using `[Cli| ...]`
+def typedCmdEquiv : Cmd := `[Cli|
+  typedCmd VIA doNothing; ["2.0.0"]
+  "a command defined with cli_def RUN"
+
+  FLAGS:
+    verbose;                     "verbose flag"
+    x, unknown1;                 "flag with short name"
+    t, typed1 : String;          "typed flag"
+    "p-n", "level-param" : Nat;  "hyphenated flag"
+
+  ARGS:
+    input1 : String;     "a string input"
+    input2 : Array Nat;  "an array input"
+    ...outputs : Nat;    "varargs"
+
+  SUBCOMMANDS: typedSubCmd
+
+  EXTENSIONS:
+    defaultValues! #[("level-param", "0")]
+]
+
+/--
+info: "cmd: typedCmd; flags: #[--verbose, --typed1=hello, --level-param=0]; positionalArgs: #[<input1=foo>, <input2=1,2,3>]; variableArgs: #[<outputs=4>, <outputs=5>]"
+-/
+#guard_msgs in
+#eval typedCmd.processParsed "--verbose -t hello foo 1,2,3 4 5"
+
+-- Same parse result from the equivalent command
+/--
+info: "cmd: typedCmd; flags: #[--verbose, --typed1=hello, --level-param=0]; positionalArgs: #[<input1=foo>, <input2=1,2,3>]; variableArgs: #[<outputs=4>, <outputs=5>]"
+-/
+#guard_msgs in
+#eval typedCmdEquiv.processParsed "--verbose -t hello foo 1,2,3 4 5"
+
+end TypedParsing
+
+section TypedInvalidInputs
+
+/-- info: "Missing positional argument `<input1>.`" -/
+#guard_msgs in
+#eval typedCmd.processParsed ""
+
+/-- info: "Missing positional argument `<input2>.`" -/
+#guard_msgs in
+#eval typedCmd.processParsed "foo"
+
+/-- info: "Invalid type of argument `abc` for positional argument `<input2 : Array Nat>`." -/
+#guard_msgs in
+#eval typedCmd.processParsed "foo abc"
+
+/-- info: "Unknown flag `--nonexistent`." -/
+#guard_msgs in
+#eval typedCmd.processParsed "foo 1 --nonexistent"
+
+end TypedInvalidInputs
+
+section TypedInfo
+
+/--
+info: "typedCmd [2.0.0]\na command defined with cli_def RUN\n\nUSAGE:\n    typedCmd [SUBCOMMAND] [FLAGS] <input1> <input2> <outputs>...\n\nFLAGS:\n    -h, --help                 Prints this message.\n    --version                  Prints the version.\n    --verbose                  verbose flag\n    -x, --unknown1             flag with short name\n    -t, --typed1 : String      typed flag\n    -p-n, --level-param : Nat  hyphenated flag [Default: `0`]\n\nARGS:\n    input1 : String     a string input\n    input2 : Array Nat  an array input\n    outputs : Nat       varargs\n\nSUBCOMMANDS:\n    typedSubCmd  a subcommand for the typed command"
+-/
+#guard_msgs in
+#eval typedCmd.extendedHelp
+
+end TypedInfo
+
+-- Test: cli_def RUN with no flags and no variable args
+cli_def minimalCmd;
+  "a minimal command with only a positional arg"
+
+  ARGS:
+    name : String; "your name"
+
+  RUN fun p => do
+    IO.println <| "Hello, " ++ p.name
+    return 0
+
+/--
+info: Hello, World
+---
+info: 0
+-/
+#guard_msgs in
+#eval minimalCmd.validate <| ["World"]
+
+-- Test: cli_def RUN with only flags, no args
+cli_def flagsOnlyCmd;
+  "a command with only flags"
+
+  FLAGS:
+    a, alpha; "first flag"
+    b, beta;  "second flag"
+
+  RUN fun p => do
+    IO.println <| "alpha=" ++ toString p.alpha ++ " beta=" ++ toString p.beta
+    return 0
+
+/--
+info: alpha=true beta=false
+---
+info: 0
+-/
+#guard_msgs in
+#eval flagsOnlyCmd.validate <| ["-a"]
+
+/--
+info: alpha=true beta=true
+---
+info: 0
+-/
+#guard_msgs in
+#eval flagsOnlyCmd.validate <| ["-ab"]
+
+-- Test: hyphenToCamelCase conversion for hyphenated arg names
+cli_def hyphenCmd;
+  "tests hyphenated names"
+
+  FLAGS:
+    "my-flag"; "a hyphenated flag"
+    "another-long-flag" : String; "a typed hyphenated flag"
+
+  ARGS:
+    "my-input" : String; "a hyphenated arg"
+
+  RUN fun p => do
+    IO.println <| "myFlag=" ++ toString p.myFlag
+    IO.println <| "anotherLongFlag=" ++ toString p.anotherLongFlag?
+    IO.println <| "myInput=" ++ p.myInput
+    return 0
+
+/--
+info: myFlag=true
+anotherLongFlag=(some hello)
+myInput=world
+---
+info: 0
+-/
+#guard_msgs in
+#eval hyphenCmd.validate <| "--my-flag --another-long-flag=hello world".splitOn " "
+
+-- Test: raw accessor provides access to underlying Cli.Parsed
+cli_def rawAccessCmd;
+  "tests raw accessor"
+
+  ARGS:
+    input : String; "an input"
+
+  RUN fun p => do
+    -- Access via typed accessor
+    IO.println <| "typed: " ++ p.input
+    -- Access via raw Cli.Parsed
+    IO.println <| "raw: " ++ (p.raw.positionalArg! "input" |>.as! String)
+    return 0
+
+/--
+info: typed: hello
+raw: hello
+---
+info: 0
+-/
+#guard_msgs in
+#eval rawAccessCmd.validate <| ["hello"]
+
+-- Test: signature-only cli_def generates struct + mkCmd but no `def`
+cli_def sigOnlyCmd; ["1.0.0"]
+  "a command defined with signature-only cli_def"
+
+  FLAGS:
+    verbose;             "verbose flag"
+    n, count : Nat;      "a count flag"
+
+  ARGS:
+    input : String;      "an input"
+    ...extras : String;  "extra args"
+
+section SigOnlyStructExists
+-- Verify the struct and mkCmd exist
+#check sigOnlyCmd.Parsed
+#check (inferInstance : Inhabited sigOnlyCmd.Parsed)
+#check @sigOnlyCmd.Parsed.verbose  -- sigOnlyCmd.Parsed → Bool
+#check @sigOnlyCmd.Parsed.count?    -- sigOnlyCmd.Parsed → Option Nat
+#check @sigOnlyCmd.Parsed.input    -- sigOnlyCmd.Parsed → String
+#check @sigOnlyCmd.Parsed.extras   -- sigOnlyCmd.Parsed → Array String
+#check @sigOnlyCmd.mkCmd           -- (sigOnlyCmd.Parsed → IO UInt32) → Cmd
+end SigOnlyStructExists
+
+-- Define the handler as a standalone function using the generated type
+def runSigOnlyCmd (p : sigOnlyCmd.Parsed) : IO UInt32 := do
+  IO.println <| "input=" ++ p.input
+  IO.println <| "extras=" ++ toString p.extras
+  IO.println <| "verbose=" ++ toString p.verbose
+  IO.println <| "count=" ++ toString p.count?
+  return 0
+
+-- Attach the handler via mkCmd
+def sigOnlyCmd : Cmd := sigOnlyCmd.mkCmd runSigOnlyCmd
+
+/--
+info: input=hello
+extras=#[a, b]
+verbose=true
+count=(some 42)
+---
+info: 0
+-/
+#guard_msgs in
+#eval sigOnlyCmd.validate <| "--verbose --count=42 hello a b".splitOn " "
+
+/--
+info: input=world
+extras=#[]
+verbose=false
+count=none
+---
+info: 0
+-/
+#guard_msgs in
+#eval sigOnlyCmd.validate <| ["world"]
+
+-- Verify help output includes all metadata
+/--
+info: "sigOnlyCmd [1.0.0]\na command defined with signature-only cli_def\n\nUSAGE:\n    sigOnlyCmd [FLAGS] <input> <extras>...\n\nFLAGS:\n    -h, --help         Prints this message.\n    --version          Prints the version.\n    --verbose          verbose flag\n    -n, --count : Nat  a count flag\n\nARGS:\n    input : String   an input\n    extras : String  extra args"
+-/
+#guard_msgs in
+#eval sigOnlyCmd.extendedHelp
+
+-- Test: signature-only with RUN-equivalent pattern produces same results
+-- as inline RUN
+cli_def sigEquivCmd;
+  "equivalent command"
+
+  FLAGS:
+    verbose; "verbose"
+
+  ARGS:
+    name : String; "a name"
+
+  RUN fun p => do
+    IO.println <| "name=" ++ p.name ++ " verbose=" ++ toString p.verbose
+    return 0
+
+cli_def sigEquivCmd2;
+  "equivalent command"
+
+  FLAGS:
+    verbose; "verbose"
+
+  ARGS:
+    name : String; "a name"
+
+def sigEquivCmd2 : Cmd := sigEquivCmd2.mkCmd fun p => do
+  IO.println <| "name=" ++ p.name ++ " verbose=" ++ toString p.verbose
+  return 0
+
+-- Both should produce the same output
+/--
+info: name=Alice verbose=true
+---
+info: 0
+-/
+#guard_msgs in
+#eval sigEquivCmd.validate <| "--verbose Alice".splitOn " "
+
+/--
+info: name=Alice verbose=true
+---
+info: 0
+-/
+#guard_msgs in
+#eval sigEquivCmd2.validate <| "--verbose Alice".splitOn " "
+
+-- Test: signature-only cli_def with subcommands
+cli_def sigSubA NOOP;
+  "subcommand A"
+
+cli_def sigSubB;
+  "subcommand B"
+
+  FLAGS:
+    force; "force flag"
+
+  RUN fun p => do
+    IO.println <| "subB force=" ++ toString p.force
+    return 0
+
+cli_def sigParentCmd; ["3.0.0"]
+  "a parent command with subcommands, defined signature-only"
+
+  FLAGS:
+    verbose; "verbose flag"
+
+  ARGS:
+    target : String; "a target"
+
+  SUBCOMMANDS:
+    sigSubA;
+    sigSubB
+
+def runSigParentCmd (p : sigParentCmd.Parsed) : IO UInt32 := do
+  IO.println <| "target=" ++ p.target ++ " verbose=" ++ toString p.verbose
+  return 0
+
+def sigParentCmd : Cmd := sigParentCmd.mkCmd runSigParentCmd
+
+-- Run parent command
+/--
+info: target=foo verbose=true
+---
+info: 0
+-/
+#guard_msgs in
+#eval sigParentCmd.validate <| "--verbose foo".splitOn " "
+
+-- Run subcommand A (NOOP)
+/-- info: 0 -/
+#guard_msgs in
+#eval sigParentCmd.validate <| "sigSubA".splitOn " "
+
+-- Run subcommand B
+/--
+info: subB force=true
+---
+info: 0
+-/
+#guard_msgs in
+#eval sigParentCmd.validate <| "sigSubB --force".splitOn " "
+
+-- Verify help lists subcommands
+/--
+info: "sigParentCmd [3.0.0]\na parent command with subcommands, defined signature-only\n\nUSAGE:\n    sigParentCmd [SUBCOMMAND] [FLAGS] <target>\n\nFLAGS:\n    -h, --help  Prints this message.\n    --version   Prints the version.\n    --verbose   verbose flag\n\nARGS:\n    target : String  a target\n\nSUBCOMMANDS:\n    sigSubA  subcommand A\n    sigSubB  subcommand B"
+-/
+#guard_msgs in
+#eval sigParentCmd.extendedHelp
+
+end CliDef
 
 end Cli
