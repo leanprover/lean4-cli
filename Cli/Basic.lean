@@ -301,6 +301,9 @@ section Configuration
     `Unit` is used to designate flags without a parameter.
     -/
     type        : ParamType
+    /-- Whether the flag may be passed multiple times, accumulating its values.
+    Only meaningful for an `Array τ`-typed flag. -/
+    repeatable  : Bool := false
     deriving Inhabited, BEq, Repr
 
   namespace Flag
@@ -1007,7 +1010,7 @@ section Macro
 
   syntax variableArg := colGe "..." literalIdent " : " term "; " nameableStringArg
 
-  syntax flag := colGe literalIdent ("," literalIdent)? (" : " term)? "; " nameableStringArg
+  syntax flag := colGe literalIdent ("," literalIdent)? "..."? (" : " term)? "; " nameableStringArg
 
   syntax "`[Cli|\n"
       literalIdent runFun "; " ("[" nameableStringArg "]")?
@@ -1047,8 +1050,13 @@ section Macro
     `(Arg.mk $(← expandLiteralIdent name) $(← expandNameableStringArg description) $type)
 
   meta def expandFlag (flag : TSyntax `Cli.flag) : MacroM Term := do
-    let `(Cli.flag| $flagName1 $[, $flagName2]? $[ : $type]?; $description) := flag
-      | Macro.throwUnsupported
+    let (flagName1, flagName2, type, description, repeatable) ←
+      match flag with
+      | `(Cli.flag| $flagName1 $[, $flagName2]? ... $[ : $type]?; $description) =>
+        pure (flagName1, flagName2, type, description, true)
+      | `(Cli.flag| $flagName1 $[, $flagName2]? $[ : $type]?; $description) =>
+        pure (flagName1, flagName2, type, description, false)
+      | _ => Macro.throwUnsupported
     let mut shortName := quote (none : Option String)
     let mut longName := flagName1
     if let some flagName2 := flagName2 then
@@ -1059,7 +1067,7 @@ section Macro
       match type with
       | none => unitType
       | some type => type
-    `(Flag.mk $shortName $(← expandLiteralIdent longName) $(← expandNameableStringArg description) $type)
+    `(Flag.mk $shortName $(← expandLiteralIdent longName) $(← expandNameableStringArg description) $type $(quote repeatable))
 
   macro_rules
     | `(`[Cli|
@@ -1155,7 +1163,10 @@ section Info
       let columns : Array (String × String) := c.meta.flags.map fun flag =>
         let shortName?    : Option String := do return s!"-{← flag.shortName?}"
         let names         : String        := optJoin #[optStr shortName?, s!"--{flag.longName}"] ", "
-        let type?         : Option String := if ¬ flag.isParamless then s!": {flag.type.name}" else none
+        let type?         : Option String :=
+          if ¬ flag.isParamless then
+            (s!": {flag.type.name}" ++ (if flag.repeatable then " ..." else "") : String)
+          else none
         (line #[names, optStr type?], flag.description)
       renderTable "FLAGS" columns (emptyTablePlaceholder? := "None")
 
@@ -1336,6 +1347,11 @@ section Parsing
     private def setParent (c? : Option Cmd) : ParseM Unit := do
       set { ← get with parent? := c? }
     private def pushParsedFlag (parsedFlag : Parsed.Flag) : ParseM Unit := do
+      if parsedFlag.flag.repeatable then
+        if let some i := (← parsedFlags).findIdx? (·.flag.longName = parsedFlag.flag.longName) then
+          let merged := { parsedFlag with value := (← parsedFlags)[i]!.value ++ "," ++ parsedFlag.value }
+          set { ← get with parsedFlags := (← parsedFlags).set! i merged }
+          return
       set { ← get with parsedFlags := (← parsedFlags).push parsedFlag }
     private def pushParsedPositionalArg (parsedPositionalArg : Parsed.Arg) : ParseM Unit := do
       set { ← get with parsedPositionalArgs := (← parsedPositionalArgs).push parsedPositionalArg }
@@ -1380,6 +1396,8 @@ section Parsing
       return none
 
     private def ensureFlagUnique (flag : Flag) (inputFlag : InputFlag) : ParseM Unit := do
+      if flag.repeatable then
+        return
       if (← parsedFlags).find? (·.flag.longName = flag.longName) |>.isSome then
         throw <| ← parseError <| duplicateFlag flag inputFlag
 
