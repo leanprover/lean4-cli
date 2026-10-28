@@ -1018,17 +1018,20 @@ section Macro
       ("EXTENSIONS: " sepBy(term, ";", "; "))?
     "\n]" : term
 
-  meta def expandNameableStringArg (t : TSyntax `Cli.nameableStringArg) : MacroM Term :=
+  meta def expandNameableStringArg (t : TSyntax ``Cli.nameableStringArg) : MacroM Term :=
     pure ⟨t.raw[0]⟩
 
-  meta def expandLiteralIdent (t : TSyntax `Cli.literalIdent) : MacroM Term :=
+  meta def extractLiteralIdent (t : TSyntax ``Cli.literalIdent) : String :=
     let s := t.raw[0]
     if s.getKind == identKind then
-      pure <| quote s.getId.toString
+      s.getId.toString
     else
-      pure ⟨s⟩
+      s.isStrLit?.get!
 
-  meta def expandRunFun (runFun : TSyntax `Cli.runFun) : MacroM Term :=
+  meta def expandLiteralIdent (t : TSyntax ``Cli.literalIdent) : MacroM Term :=
+    pure <| quote <| extractLiteralIdent t
+
+  meta def expandRunFun (runFun : TSyntax ``Cli.runFun) : MacroM Term :=
     match runFun with
     | `(Cli.runFun| VIA $run) =>
       `($run)
@@ -1036,17 +1039,17 @@ section Macro
       `(fun _ => pure 0)
     | _ => Macro.throwUnsupported
 
-  meta def expandPositionalArg (positionalArg : TSyntax `Cli.positionalArg) : MacroM Term := do
+  meta def expandPositionalArg (positionalArg : TSyntax ``Cli.positionalArg) : MacroM Term := do
     let `(Cli.positionalArg| $name : $type; $description) := positionalArg
       | Macro.throwUnsupported
     `(Arg.mk $(← expandLiteralIdent name) $(← expandNameableStringArg description) $type)
 
-  meta def expandVariableArg (variableArg : TSyntax `Cli.variableArg) : MacroM Term := do
+  meta def expandVariableArg (variableArg : TSyntax ``Cli.variableArg) : MacroM Term := do
     let `(Cli.variableArg| ...$name : $type; $description) := variableArg
       | Macro.throwUnsupported
     `(Arg.mk $(← expandLiteralIdent name) $(← expandNameableStringArg description) $type)
 
-  meta def expandFlag (flag : TSyntax `Cli.flag) : MacroM Term := do
+  meta def expandFlag (flag : TSyntax ``Cli.flag) : MacroM Term := do
     let `(Cli.flag| $flagName1 $[, $flagName2]? $[ : $type]?; $description) := flag
       | Macro.throwUnsupported
     let mut shortName := quote (none : Option String)
@@ -1061,31 +1064,53 @@ section Macro
       | some type => type
     `(Flag.mk $shortName $(← expandLiteralIdent longName) $(← expandNameableStringArg description) $type)
 
+  meta def mkCmdInstantiationTerm
+      (name : TSyntax ``Cli.literalIdent)
+      (version? : Option (TSyntax ``Cli.nameableStringArg))
+      (description : TSyntax ``Cli.nameableStringArg)
+      (flags? : Option (TSyntaxArray ``Cli.flag))
+      (positionalArgs? : Option (TSyntaxArray ``Cli.positionalArg))
+      (variableArg? : Option (Option (TSyntax ``Cli.variableArg)))
+      (subCommands? : Option (Lean.Syntax.TSepArray `ident ";"))
+      (extensions? : Option (Lean.Syntax.TSepArray `term ";"))
+      (run : Term)
+      : MacroM Term := do
+    `(Cmd.mk
+        (name           := $(← expandLiteralIdent name))
+        (version?       := $(quote (← version?.mapM expandNameableStringArg)))
+        (description    := $(← expandNameableStringArg description))
+        (flags          := $(quote (← flags?.getD #[] |>.mapM expandFlag)))
+        (positionalArgs := $(quote (← positionalArgs?.getD #[] |>.mapM expandPositionalArg)))
+        (variableArg?   := $(quote (← (Option.join variableArg?).mapM expandVariableArg)))
+        (run            := $run)
+        (subCmds        := $(quote ((subCommands?.getD ⟨#[]⟩).getElems : TSyntaxArray `term)))
+        (extension?     := some <| Array.foldl Extension.then { : Extension } <| Array.qsort
+          $(quote (extensions?.getD ⟨#[]⟩).getElems) (·.priority > ·.priority)))
+
   macro_rules
     | `(`[Cli|
         $name $run:runFun; $[[$version?]]?
         $description
         $[FLAGS:
-          $flags*
+          $flags?*
         ]?
         $[ARGS:
-          $positionalArgs*
-          $[$variableArg]?
+          $positionalArgs?*
+          $[$variableArg?]?
         ]?
-        $[SUBCOMMANDS: $subCommands;*]?
-        $[EXTENSIONS: $extensions;*]?
+        $[SUBCOMMANDS: $subCommands?;*]?
+        $[EXTENSIONS: $extensions?;*]?
       ]) => do
-        `(Cmd.mk
-          (name           := $(← expandLiteralIdent name))
-          (version?       := $(quote (← version?.mapM expandNameableStringArg)))
-          (description    := $(← expandNameableStringArg description))
-          (flags          := $(quote (← flags.getD #[] |>.mapM expandFlag)))
-          (positionalArgs := $(quote (← positionalArgs.getD #[] |>.mapM expandPositionalArg)))
-          (variableArg?   := $(quote (← (Option.join variableArg).mapM expandVariableArg)))
-          (run            := $(← expandRunFun run))
-          (subCmds        := $(quote ((subCommands.getD ⟨#[]⟩).getElems : TSyntaxArray `term)))
-          (extension?     := some <| Array.foldl Extension.then { : Extension } <| Array.qsort
-            $(quote (extensions.getD ⟨#[]⟩).getElems) (·.priority > ·.priority)))
+        mkCmdInstantiationTerm
+          name
+          version?
+          description
+          flags?
+          positionalArgs?
+          variableArg?
+          subCommands?
+          extensions?
+          (← expandRunFun run)
 end Macro
 
 section Info
