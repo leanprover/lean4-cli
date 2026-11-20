@@ -2,43 +2,14 @@ import Cli
 
 open Cli
 
-def runExampleCmd (p : Parsed) : IO UInt32 := do
-  let input   : String       := p.positionalArg! "input" |>.as! String
-  let outputs : Array String := p.variableArgsAs! String
-  IO.println <| "Input: " ++ input
-  IO.println <| "Outputs: " ++ toString outputs
-
-  if p.hasFlag "verbose" then
-    IO.println "Flag `--verbose` was set."
-  if p.hasFlag "invert" then
-    IO.println "Flag `--invert` was set."
-  if p.hasFlag "optimize" then
-    IO.println "Flag `--optimize` was set."
-
-  let priority : Nat := p.flag! "priority" |>.as! Nat
-  IO.println <| "Flag `--priority` always has at least a default value: " ++ toString priority
-
-  if p.hasFlag "module" then
-    let moduleName : ModuleName := p.flag! "module" |>.as! ModuleName
-    IO.println <| s!"Flag `--module` was set to `{moduleName}`."
-
-  if let some setPathsFlag := p.flag? "set-paths" then
-    IO.println <| toString <| setPathsFlag.as! (Array String)
-  return 0
-
-def installCmd := `[Cli|
-  installCmd NOOP;
+cli_def installCmd NOOP;
   "installCmd provides an example for a subcommand without flags or arguments that does nothing. \
    Versions can be omitted."
-]
 
-def testCmd := `[Cli|
-  testCmd NOOP;
+cli_def testCmd NOOP;
   "testCmd provides another example for a subcommand without flags or arguments that does nothing."
-]
 
-def exampleCmd : Cmd := `[Cli|
-  exampleCmd VIA runExampleCmd; ["0.0.1"]
+cli_def exampleCmd; ["0.0.1"]
   "This string denotes the description of `exampleCmd`."
 
   FLAGS:
@@ -51,7 +22,7 @@ def exampleCmd : Cmd := `[Cli|
                                  which can be used to reference Lean modules like `Init.Data.Array` \
                                  or Lean files using a relative path like `Init/Data/Array.lean`."
     "set-paths" : Array String; "Declares a flag `--set-paths` \
-                                 that takes an argument of type `Array Nat`. \
+                                 that takes an argument of type `Array String`. \
                                  Quotation marks allow the use of hyphens."
 
   ARGS:
@@ -70,7 +41,30 @@ def exampleCmd : Cmd := `[Cli|
   EXTENSIONS:
     author "mhuisi";
     defaultValues! #[("priority", "0")]
-]
+
+def runExampleCmd (p : exampleCmd.Parsed) : IO UInt32 := do
+  IO.println <| "Input: " ++ p.input
+  IO.println <| "Outputs: " ++ toString p.outputs
+
+  if p.verbose then
+    IO.println "Flag `--verbose` was set."
+  if p.invert then
+    IO.println "Flag `--invert` was set."
+  if p.optimize then
+    IO.println "Flag `--optimize` was set."
+
+  let priority : Nat := p.priority?.getD 0
+  IO.println <| "Flag `--priority` always has at least a default value: " ++ toString priority
+
+  if let some moduleName := p.module? then
+    IO.println <| s!"Flag `--module` was set to `{moduleName}`."
+
+  if let some setPaths := p.setPaths? then
+    IO.println <| toString setPaths
+
+  return 0
+
+def exampleCmd : Cmd := exampleCmd.mkCmd runExampleCmd
 
 def main (args : List String) : IO UInt32 :=
   exampleCmd.validate args
@@ -106,7 +100,6 @@ Yields:
   0.0.1
 -/
 
-
 #eval main <| "-h".splitOn " "
 /-
 Yields:
@@ -135,7 +128,7 @@ Yields:
                                   or Lean files using a relative path like
                                   `Init/Data/Array.lean`.
       --set-paths : Array String  Declares a flag `--set-paths` that takes an
-                                  argument of type `Array Nat`. Quotation marks
+                                  argument of type `Array String`. Quotation marks
                                   allow the use of hyphens.
 
   ARGS:
